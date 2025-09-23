@@ -14,7 +14,7 @@ use std::time::Duration;
 use tracing::info;
 
 #[derive(Debug)]
-enum EpdError {
+pub enum EpdError {
     Spi(SPIError),
     Io(io::Error),
     Gpio(GpioError),
@@ -60,7 +60,7 @@ enum SelectedChip {
 }
 
 #[derive(Debug)]
-pub(crate) struct EpdDevice<SPI>
+pub struct EpdDevice<SPI>
 where
     SPI: SpiDevice,
 {
@@ -186,7 +186,7 @@ impl EpdDevice<SpidevDevice> {
         Ok(())
     }
 
-    pub fn wait_for_not_busy(&self) -> Result<(), EpdError> {
+    fn wait_for_not_busy(&self) -> Result<(), EpdError> {
         while self.busy_pin.get_value()? == (Low as u8) {
             sleep(Duration::from_millis(5))
         }
@@ -211,7 +211,7 @@ impl EpdDevice<SpidevDevice> {
         Ok(())
     }
 
-    fn init(&mut self) -> Result<(), EpdError> {
+    pub fn init(&mut self) -> Result<(), EpdError> {
         info!("EPD init...");
         self.reset()?;
         self.wait_for_not_busy()?;
@@ -240,7 +240,7 @@ impl EpdDevice<SpidevDevice> {
         Ok(())
     }
 
-    fn sleep_display(&mut self) -> Result<(), EpdError> {
+    pub fn sleep_display(&mut self) -> Result<(), EpdError> {
         self.send_command(CommandCode::DeepSleep, SelectedChip::Both)?;
         sleep(Duration::from_secs(2));
         Ok(())
