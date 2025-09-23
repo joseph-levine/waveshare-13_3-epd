@@ -1,99 +1,193 @@
+use crate::constants::known_pin::Level::{High, Low};
 use crate::constants::{command_code::CommandCode, known_pin::KnownPin};
-use rppal::gpio::Level::{High, Low};
-use rppal::gpio::Mode::{Input, Output};
-use rppal::gpio::{Error as GpioError, Gpio, Level, OutputPin};
-use rppal::spi::{Error as SpiError, Spi};
+use embedded_hal::spi::SpiDevice;
+use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
+use linux_embedded_hal::sysfs_gpio::{Direction, Error as GpioError, Pin};
+use linux_embedded_hal::{SPIError, SpidevDevice};
+use std::cmp::PartialEq;
 use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::io;
+use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 use tracing::info;
 
+#[derive(Debug)]
 enum EpdError {
-    Spi(SpiError),
+    Spi(SPIError),
+    Io(io::Error),
     Gpio(GpioError),
 }
 
-impl From<SpiError> for EpdError {
-    fn from(err: SpiError) -> EpdError {
+impl Display for EpdError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Error for EpdError {}
+
+impl From<io::Error> for EpdError {
+    fn from(err: io::Error) -> EpdError {
+        EpdError::Io(err)
+    }
+}
+
+impl From<SPIError> for EpdError {
+    fn from(err: SPIError) -> EpdError {
         EpdError::Spi(err)
     }
 }
+
 impl From<GpioError> for EpdError {
     fn from(err: GpioError) -> EpdError {
         EpdError::Gpio(err)
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum SendMode {
     Command,
     Data,
 }
 
-impl From<SendMode> for Level {
-    fn from(mode: SendMode) -> Self {
-        match mode {
-            SendMode::Command => Low,
-            SendMode::Data => High,
-        }
-    }
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum SelectedChip {
+    Main,
+    Peri,
+    Both,
 }
 
 #[derive(Debug)]
-pub(crate) struct EpdController {
-    pub gpio: Gpio,
-    pub spi: Spi,
+pub(crate) struct EpdDevice<SPI>
+where
+    SPI: SpiDevice,
+{
+    spi: SPI,
+    chip_select_main_pin: Pin,
+    chip_select_peri_pin: Pin,
+    clock_pin: Pin,
+    data_or_cmd_pin: Pin,
+    // data_or_cmd_pin: Pin,
+    reset_pin: Pin,
+    busy_pin: Pin,
+    power_pin: Pin,
+    selected_chip: SelectedChip,
+    send_mode: SendMode,
 }
-impl EpdController {
-    pub fn new(gpio: Gpio, spi: Spi) -> Result<EpdController, EpdError> {
-        let mut this = EpdController { gpio, spi };
-        this.output_pin(KnownPin::SerialClockPin)?.write(Low);
-        this.output_pin(KnownPin::SerialDataPin)?.write(Low);
-        this.output_pin(KnownPin::SerialSelectMainPin)?.write(Low);
-        this.output_pin(KnownPin::SerialSelectPeriPin)?.write(Low);
-        this.output_pin(KnownPin::DataCommandPin)?.write(Low);
-        this.output_pin(KnownPin::ResetPin)?.write(Low);
-        // this.output_pin(KnownPin::BusyPin)?.write(Low);
-        this.output_pin(KnownPin::PowerPin)?.write(High);
-        Ok(this)
+
+impl EpdDevice<SpidevDevice> {
+    pub fn new() -> Result<EpdDevice<SpidevDevice>, EpdError> {
+        let mut spi = SpidevDevice::open("/dev/spidev0.0")?;
+        let options = SpidevOptions::new()
+            .bits_per_word(8)
+            .max_speed_hz(32_000_000)
+            .mode(SpiModeFlags::SPI_MODE_0)
+            .build();
+        spi.configure(&options)?;
+
+        let clock_pin = KnownPin::SerialClockPin.pin(Low, None)?;
+
+        let chip_select_main_pin = KnownPin::SerialSelectMainPin.pin(Low, None)?;
+
+        let chip_select_peri_pin = KnownPin::SerialSelectPeriPin.pin(Low, None)?;
+
+        let data_or_cmd_pin = KnownPin::DataCommandPin.pin(Low, None)?;
+
+        let busy_pin = KnownPin::BusyPin.pin(Low, Some(Direction::Out))?;
+
+        let reset_pin = KnownPin::ResetPin.pin(Low, None)?;
+
+        let power_pin = KnownPin::PowerPin.pin(High, None)?;
+
+        Ok(EpdDevice {
+            spi,
+            clock_pin,
+            data_or_cmd_pin,
+            chip_select_main_pin,
+            chip_select_peri_pin,
+            reset_pin,
+            busy_pin,
+            power_pin,
+            send_mode: SendMode::Command,
+            selected_chip: SelectedChip::Both,
+        })
     }
 
-    pub fn output_pin(&self, known_pin: KnownPin) -> Result<OutputPin, GpioError> {
-        Ok(self.gpio.get(known_pin.into())?.into_output())
+    fn select_chip(&mut self, selected_chip: SelectedChip) -> Result<(), EpdError> {
+        if selected_chip == self.selected_chip {
+            return Ok(());
+        }
+        match (self.selected_chip, selected_chip) {
+            (SelectedChip::Both, SelectedChip::Main) => {
+                self.chip_select_peri_pin.set_value(Low as u8)?;
+            }
+            (SelectedChip::Both, SelectedChip::Peri) => {
+                self.chip_select_main_pin.set_value(Low as u8)?;
+            }
+            (SelectedChip::Main, SelectedChip::Both) => {
+                self.chip_select_peri_pin.set_value(High as u8)?;
+            }
+            (SelectedChip::Main, SelectedChip::Peri) => {
+                self.chip_select_main_pin.set_value(Low as u8)?;
+                self.chip_select_peri_pin.set_value(High as u8)?;
+            }
+            (SelectedChip::Peri, SelectedChip::Both) => {
+                self.chip_select_main_pin.set_value(High as u8)?;
+            }
+            (SelectedChip::Peri, SelectedChip::Main) => {
+                self.chip_select_main_pin.set_value(High as u8)?;
+                self.chip_select_peri_pin.set_value(Low as u8)?;
+            }
+            (_, _) => unreachable!(),
+        }
+        self.selected_chip = selected_chip;
+        Ok(())
+    }
+
+    fn set_send_mode(&mut self, send_mode: SendMode) -> Result<(), EpdError> {
+        if send_mode == self.send_mode {
+            return Ok(());
+        }
+        match (self.send_mode, send_mode) {
+            (SendMode::Command, SendMode::Data) => {
+                self.data_or_cmd_pin.set_value(High as u8)?;
+            }
+            (SendMode::Data, SendMode::Command) => {
+                self.data_or_cmd_pin.set_value(Low as u8)?;
+            }
+            (_, _) => unreachable!(),
+        }
+        self.send_mode = send_mode;
+        Ok(())
     }
 
     pub fn send_command(
         &mut self,
         command_code: CommandCode,
-        main_only: bool,
+        selected_chip: SelectedChip,
     ) -> Result<(), EpdError> {
-        let mut main = self.output_pin(KnownPin::SerialSelectMainPin)?;
-        let mut peri = self.output_pin(KnownPin::SerialSelectPeriPin)?;
-        main.write(SendMode::Command.into());
-        if !main_only {
-            peri.write(SendMode::Command.into());
-        }
-        self.spi.write(command_code.cmd())?;
+        self.select_chip(selected_chip)?;
+        self.set_send_mode(SendMode::Command)?;
+        self.spi.write(&[command_code.cmd()])?;
         if let Some(data) = command_code.data() {
+            self.set_send_mode(SendMode::Data)?;
             self.spi.write(data)?;
         }
-        main.write(SendMode::Data.into());
-        peri.write(SendMode::Data.into());
         Ok(())
     }
 
-    pub fn reset(self) -> Result<(), EpdError> {
-        let mut reset_pin = self.gpio.get(KnownPin::ResetPin.into())?.into_output();
+    pub fn reset(&self) -> Result<(), EpdError> {
         for l in [High, Low, High, Low, High] {
-            reset_pin.write(l);
+            self.reset_pin.set_value(l as u8)?;
             sleep(Duration::from_millis(30));
         }
         Ok(())
     }
 
-    pub fn wait_for_not_busy(self) -> Result<(), EpdError> {
-        let busy_pin = self.gpio.get(KnownPin::BusyPin.into())?;
-        while busy_pin.read() == Low {
+    pub fn wait_for_not_busy(&self) -> Result<(), EpdError> {
+        while self.busy_pin.get_value()? == (Low as u8) {
             sleep(Duration::from_millis(5))
         }
         Ok(())
@@ -101,17 +195,17 @@ impl EpdController {
 
     pub fn turn_display_on(&mut self) -> Result<(), EpdError> {
         info!("Write PON");
-        self.send_command(CommandCode::Pon, false)?;
+        self.send_command(CommandCode::Pon, SelectedChip::Both)?;
         self.wait_for_not_busy()?;
 
         sleep(Duration::from_millis(50));
 
         info!("Write DRF");
-        self.send_command(CommandCode::Drf, false)?;
+        self.send_command(CommandCode::Drf, SelectedChip::Both)?;
         self.wait_for_not_busy()?;
 
         info!("Write POF");
-        self.send_command(CommandCode::Pof, false)?;
+         self.send_command(CommandCode::Pof, SelectedChip::Both)?;
 
         info!("Display Done");
         Ok(())
@@ -123,22 +217,22 @@ impl EpdController {
         self.wait_for_not_busy()?;
 
         let boot_sequence = [
-            (CommandCode::AnTm, true),
-            (CommandCode::Cmd66, false),
-            (CommandCode::Psr, false),
-            (CommandCode::Cdi, false),
-            (CommandCode::Tcon, false),
-            (CommandCode::Agid, false),
-            (CommandCode::Pws, false),
-            (CommandCode::Ccset, false),
-            (CommandCode::Tres, false),
-            (CommandCode::Pwr, true),
-            (CommandCode::EnBuf, true),
-            (CommandCode::BtstP, true),
-            (CommandCode::BoostVddpEn, true),
-            (CommandCode::BtstN, true),
-            (CommandCode::BuckBoostVddn, true),
-            (CommandCode::TftVcomPower, true),
+            (CommandCode::AnTm, SelectedChip::Main),
+            (CommandCode::Cmd66, SelectedChip::Both),
+            (CommandCode::Psr, SelectedChip::Both),
+            (CommandCode::Cdi, SelectedChip::Both),
+            (CommandCode::Tcon, SelectedChip::Both),
+            (CommandCode::Agid, SelectedChip::Both),
+            (CommandCode::Pws, SelectedChip::Both),
+            (CommandCode::Ccset, SelectedChip::Both),
+            (CommandCode::Tres, SelectedChip::Both),
+            (CommandCode::Pwr, SelectedChip::Main),
+            (CommandCode::EnBuf, SelectedChip::Main),
+            (CommandCode::BtstP, SelectedChip::Main),
+            (CommandCode::BoostVddpEn, SelectedChip::Main),
+            (CommandCode::BtstN, SelectedChip::Main),
+            (CommandCode::BuckBoostVddn, SelectedChip::Main),
+            (CommandCode::TftVcomPower, SelectedChip::Main),
         ];
         for (command, main_only) in boot_sequence {
             self.send_command(command, main_only)?;
@@ -147,30 +241,22 @@ impl EpdController {
     }
 
     fn sleep_display(&mut self) -> Result<(), EpdError> {
-        self.send_command(CommandCode::DeepSleep, false)?;
+        self.send_command(CommandCode::DeepSleep, SelectedChip::Both)?;
         sleep(Duration::from_secs(2));
         Ok(())
     }
-
 }
 
-impl Drop for EpdController {
+impl<SPI> Drop for EpdDevice<SPI>
+where
+    SPI: SpiDevice,
+{
     fn drop(&mut self) {
-        if let Some(m) = self.output_pin(KnownPin::SerialSelectMainPin) {
-            m.write(Low);
-        };
-        if let Some(p) = self.output_pin(KnownPin::SerialSelectPeriPin) {
-            p.write(Low);
-        }
-        if let Some(dc) = self.output_pin(KnownPin::DataCommandPin) {
-            dc.write(Low);
-        }
-        if let Some(r) = self.output_pin(KnownPin::ResetPin) {
-            r.write(Low);
-        }
-        if let Some(pow) = self.output_pin(KnownPin::PowerPin) {
-            pow.write(Low);
-        }
+        // we're going to ignore errors here...
+        let _ = self.chip_select_main_pin.set_value(Low as u8);
+        let _ = self.chip_select_peri_pin.set_value(Low as u8);
+        let _ = self.data_or_cmd_pin.set_value(Low as u8);
+        let _ = self.reset_pin.set_value(Low as u8);
+        let _ = self.power_pin.set_value(Low as u8);
     }
 }
-

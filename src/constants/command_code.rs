@@ -29,8 +29,8 @@ pub enum CommandCode {
 }
 
 impl CommandCode {
-    pub fn cmd<'a>(self) ->  &'a[u8] {
-        &[self as u8]
+    pub fn cmd(self) ->  u8 {
+        self as u8
     }
 
     pub fn data<'a>(&self) -> Option<&'a [u8]> {

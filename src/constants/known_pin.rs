@@ -1,4 +1,18 @@
-use crate::constants::command_code::CommandCode;
+use std::io;
+use linux_embedded_hal::sysfs_gpio::{Direction, Pin};
+
+#[derive(Debug)]
+#[repr(u8)]
+pub enum Level {
+    Low = 0x00,
+    High = 0x01,
+}
+
+impl From<Level> for u8 {
+    fn from(value: Level) -> Self {
+        value as u8
+    }
+}
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -23,8 +37,20 @@ pub enum KnownPin {
     PowerPin = 18,
 }
 
-impl From<KnownPin> for u8 {
+impl From<KnownPin> for u64 {
     fn from(known_pin: KnownPin) -> Self {
-        known_pin as u8
+        known_pin as u64
+    }
+}
+
+impl KnownPin {
+    pub fn pin(self, initial_value: Level, direction: Option<Direction>) -> Result<Pin,io::Error> {
+        let p = Pin::new(self.into());
+        p.export()?;
+        if let Some(d) = direction {
+            p.set_direction(d)?;
+        }
+        p.set_value(initial_value.into())?;
+        Ok(p)
     }
 }
