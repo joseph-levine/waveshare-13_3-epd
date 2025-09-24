@@ -1,5 +1,5 @@
 mod e_paper_display;
-mod dither;
+mod image;
 
 use e_paper_display::EpdDevice;
 use std::error::Error;

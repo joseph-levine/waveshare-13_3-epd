@@ -1,5 +1,3 @@
-use crate::e_paper_display::data::*;
-
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum CommandCode {
