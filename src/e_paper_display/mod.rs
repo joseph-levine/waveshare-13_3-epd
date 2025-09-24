@@ -1,5 +1,8 @@
-use crate::constants::known_pin::Level::{High, Low};
-use crate::constants::{command_code::CommandCode, known_pin::KnownPin};
+pub mod gpio_pin;
+pub mod command_code;
+
+use crate::e_paper_display::gpio_pin::Level::{High, Low};
+use crate::e_paper_display::{command_code::CommandCode, gpio_pin::GpioPin};
 use embedded_hal::spi::SpiDevice;
 use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
 use linux_embedded_hal::sysfs_gpio::{Direction, Error as GpioError, Pin};
@@ -65,19 +68,19 @@ impl EpdDevice<SpidevDevice> {
             .build();
         spi.configure(&options)?;
 
-        let clock_pin = KnownPin::SerialClockPin.pin(Low, None)?;
+        let clock_pin = GpioPin::SerialClockPin.pin(Low, None)?;
 
-        let chip_select_main_pin = KnownPin::SerialSelectMainPin.pin(Low, None)?;
+        let chip_select_main_pin = GpioPin::SerialSelectMainPin.pin(Low, None)?;
 
-        let chip_select_peri_pin = KnownPin::SerialSelectPeriPin.pin(Low, None)?;
+        let chip_select_peri_pin = GpioPin::SerialSelectPeriPin.pin(Low, None)?;
 
-        let data_or_cmd_pin = KnownPin::DataCommandPin.pin(Low, None)?;
+        let data_or_cmd_pin = GpioPin::DataCommandPin.pin(Low, None)?;
 
-        let busy_pin = KnownPin::BusyPin.pin(Low, Some(Direction::Out))?;
+        let busy_pin = GpioPin::BusyPin.pin(Low, Some(Direction::Out))?;
 
-        let reset_pin = KnownPin::ResetPin.pin(Low, None)?;
+        let reset_pin = GpioPin::ResetPin.pin(Low, None)?;
 
-        let power_pin = KnownPin::PowerPin.pin(High, None)?;
+        let power_pin = GpioPin::PowerPin.pin(High, None)?;
 
         Ok(EpdDevice {
             spi,

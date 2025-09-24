@@ -16,7 +16,7 @@ impl From<Level> for u8 {
 
 #[derive(Debug)]
 #[repr(u8)]
-pub enum KnownPin {
+pub enum GpioPin {
     /// serial clock
     SerialClockPin = 11,
 
@@ -37,13 +37,13 @@ pub enum KnownPin {
     PowerPin = 18,
 }
 
-impl From<KnownPin> for u64 {
-    fn from(known_pin: KnownPin) -> Self {
+impl From<GpioPin> for u64 {
+    fn from(known_pin: GpioPin) -> Self {
         known_pin as u64
     }
 }
 
-impl KnownPin {
+impl GpioPin {
     pub fn pin(self, initial_value: Level, direction: Option<Direction>) -> Result<Pin,io::Error> {
         let p = Pin::new(self.into());
         p.export()?;
