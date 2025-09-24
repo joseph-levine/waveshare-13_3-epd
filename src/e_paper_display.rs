@@ -5,46 +5,24 @@ use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
 use linux_embedded_hal::sysfs_gpio::{Direction, Error as GpioError, Pin};
 use linux_embedded_hal::{SPIError, SpidevDevice};
 use std::cmp::PartialEq;
-use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
+use thiserror::Error;
 use tracing::info;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EpdError {
-    Spi(SPIError),
-    Io(io::Error),
-    Gpio(GpioError),
+    #[error(transparent)]
+    Spi(#[from] SPIError),
+    #[error(transparent)]
+    Io(#[from]io::Error),
+    #[error(transparent)]
+    Gpio(#[from] GpioError),
 }
 
-impl Display for EpdError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl Error for EpdError {}
-
-impl From<io::Error> for EpdError {
-    fn from(err: io::Error) -> EpdError {
-        EpdError::Io(err)
-    }
-}
-
-impl From<SPIError> for EpdError {
-    fn from(err: SPIError) -> EpdError {
-        EpdError::Spi(err)
-    }
-}
-
-impl From<GpioError> for EpdError {
-    fn from(err: GpioError) -> EpdError {
-        EpdError::Gpio(err)
-    }
-}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum SendMode {
