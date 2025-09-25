@@ -8,8 +8,10 @@ tracing = { version = "^0.1.41" }
 tracing-subscriber = { version = "^0.3.20" }
 embedded-hal = { version = "^1.0.0" }
 linux-embedded-hal = { version = "^0.4.0"}
-thiserror = { version = "2.0.16" }
-image = { version = "0.25.8" }
+thiserror = { version = "^2.0.16" }
+image = { version = "^0.25.8" }
+clap = { version = "^4.5.48", features = ["derive"] }
+palette = { version = "^0.7.6" }
 
 # hey joe, you can't use this because it doesn't support sending over two channels at once.
 #rpi-pal = { version = "^0.22.2", features = ["embedded-hal"] }
