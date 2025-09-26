@@ -1,7 +1,8 @@
 use image::imageops::ColorMap;
-use palette::color_difference::HyAb;
+use palette::color_difference::{HyAb};
 use palette::Oklab;
 use std::collections::HashMap;
+use image::Pixel;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -17,12 +18,12 @@ pub enum DisplayColor {
 impl From<DisplayColor> for Oklab {
     fn from(value: DisplayColor) -> Self {
         match value {
-            DisplayColor::Black => Oklab::new(0., 0., 0.), // black
-            DisplayColor::White => Oklab::new(1., 0., 0.), // white
-            DisplayColor::Yellow => Oklab::new(0.945, -0.050, 0.181), // yellow
-            DisplayColor::Red => Oklab::new(0.505, 0.181, 0.101), // red
-            DisplayColor::Blue => Oklab::new(0.542, 0.054, -0.256), // blue
-            DisplayColor::Green => Oklab::new(0.566, -0.115, 0.107), // green
+            DisplayColor::Black => Oklab::from_components((0., 0., 0.)),
+            DisplayColor::White => Oklab::from_components((255., 255., 255.)),
+            DisplayColor::Yellow => Oklab::from_components((255., 243., 56.)),
+            DisplayColor::Red => Oklab::from_components((191., 0., 0.)),
+            DisplayColor::Blue => Oklab::from_components((100., 64., 255.)),
+            DisplayColor::Green => Oklab::from_components((67., 138., 28.)),
         }
     }
 }
@@ -56,7 +57,7 @@ impl EPaperColorMap {
             DisplayColor::Green,
         ];
         Self {
-            colormap: HashMap::from_iter(colors.into_iter().map(|c| (c, c.into())))
+            colormap: HashMap::from_iter(colors.into_iter().map(|c| (c, c.into()))),
         }
     }
 
@@ -76,7 +77,8 @@ impl ColorMap for EPaperColorMap {
                     .total_cmp(&b.hybrid_distance(color.clone()))
             })
             .map(|(index, _)| index)
-            .unwrap_or(&DisplayColor::White).clone() as usize
+            .unwrap_or(&DisplayColor::White)
+            .clone() as usize
     }
 
     fn lookup(&self, index: usize) -> Option<Self::Color> {
@@ -89,6 +91,8 @@ impl ColorMap for EPaperColorMap {
     }
 
     fn map_color(&self, color: &mut Self::Color) {
-        todo!()
+        let c = color.clone();
+        let new_color = self.lookup(self.index_of(&c)).expect("Infallible");
+        *color = new_color;
     }
 }
