@@ -1,6 +1,5 @@
 pub mod gpio_pin;
 pub mod command_code;
-pub mod color;
 
 use crate::e_paper_display::gpio_pin::Level::{High, Low};
 use crate::e_paper_display::{command_code::CommandCode, gpio_pin::GpioPin};

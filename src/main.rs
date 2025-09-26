@@ -1,8 +1,8 @@
 extern crate core;
 
 mod e_paper_display;
+mod color;
 
-use crate::e_paper_display::color::{rgb_to_display_u8, EPaperColorMap};
 use clap::Parser;
 use e_paper_display::EpdDevice;
 use image::imageops::{dither, FilterType};
