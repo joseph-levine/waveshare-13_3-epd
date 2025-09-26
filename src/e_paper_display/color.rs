@@ -60,20 +60,25 @@ impl EPaperColorMap {
     }
 }
 
+#[inline(always)]
+fn to_u64<'a>(color: &Rgb<u8>) -> [u64;3] {
+    let [r, g, b] = color.0;
+    [r as u64, g as u64, b as u64]
+}
+
 impl ColorMap for EPaperColorMap {
     type Color = Rgb<u8>;
 
     fn index_of(&self, color: &Self::Color) -> usize {
-        let [red, green, blue] = color.0;
+        let [red, green, blue] = to_u64(color);
         self.colormap
             .iter()
             .min_by(|(_, a), (_, b)| {
-                let [ar, ag, ab] = a.0;
-                let [br, bg, bb] = b.0;
-
-                ((red - ar) ^ 2 + (green - ag) ^ 2 + (blue - ab) ^ 2)
+                let [ar, ag, ab] = to_u64(a);
+                let [br, bg, bb] = to_u64(b);
+                ((red - ar).pow(2) + (green - ag).pow(2) + (blue - ab).pow(2))
                     .isqrt()
-                    .cmp(&((red - br) ^ 2 + (green - bg) ^ 2 + (blue - bb) ^ 2).isqrt())
+                    .cmp(&((red - br).pow(2) + (green - bg).pow(2) + (blue - bb).pow(2)).isqrt())
             })
             .map(|(index, _)| index)
             .unwrap_or(&DisplayColor::White)
