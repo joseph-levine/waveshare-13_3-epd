@@ -2,7 +2,7 @@ extern crate core;
 
 mod e_paper_display;
 
-use crate::e_paper_display::color::EPaperColorMap;
+use crate::e_paper_display::color::{rgb_to_display_u8, EPaperColorMap};
 use clap::Parser;
 use e_paper_display::EpdDevice;
 use image::imageops::{dither, FilterType};
@@ -25,11 +25,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let epd_map = EPaperColorMap::new();
     dither(&mut img, &epd_map);
+    let epd_image = rgb_to_display_u8(&img);
 
     let mut device = EpdDevice::new()?;
     device.init()?;
     device.turn_display_on()?;
-    // display
+    device.send_image(&epd_image)?;
     device.sleep_display()?;
 
     Ok(())

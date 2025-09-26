@@ -1,5 +1,5 @@
 use image::imageops::ColorMap;
-use image::Rgb;
+use image::{Rgb, RgbImage};
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -13,16 +13,28 @@ pub enum DisplayColor {
     Green = 0x05,
 }
 
+impl DisplayColor {
+    fn rgb_map() -> HashMap<DisplayColor, Rgb<u8>> {
+        HashMap::from([
+            (DisplayColor::Black, Rgb::from([0, 0, 0])),
+            (DisplayColor::White, Rgb::from([255, 255, 255])),
+            (DisplayColor::Yellow, Rgb::from([255, 243, 56])),
+            (DisplayColor::Red, Rgb::from([191, 0, 0])),
+            (DisplayColor::Blue, Rgb::from([100, 64, 255])),
+            (DisplayColor::Green, Rgb::from([67, 138, 28])),
+        ])
+    }
+}
+
 impl From<DisplayColor> for Rgb<u8> {
     fn from(value: DisplayColor) -> Self {
-        match value {
-            DisplayColor::Black => Rgb::from([0, 0, 0]),
-            DisplayColor::White => Rgb::from([255, 255, 255]),
-            DisplayColor::Yellow => Rgb::from([255, 243, 56]),
-            DisplayColor::Red => Rgb::from([191, 0, 0]),
-            DisplayColor::Blue => Rgb::from([100, 64, 255]),
-            DisplayColor::Green => Rgb::from([67, 138, 28]),
-        }
+        DisplayColor::rgb_map().get(&value).map(|v| v.clone()).expect("Should be impossible")
+    }
+}
+
+impl From<&Rgb<u8>> for DisplayColor {
+    fn from(value: &Rgb<u8>) -> Self {
+        DisplayColor::rgb_map().iter().find_map(|(k, v)| if value == v { Some(k.clone()) } else { None }).unwrap_or_else(|| DisplayColor::White)
     }
 }
 
@@ -61,7 +73,7 @@ impl EPaperColorMap {
 }
 
 #[inline(always)]
-fn to_u64<'a>(color: &Rgb<u8>) -> [u64;3] {
+fn to_u64<'a>(color: &Rgb<u8>) -> [u64; 3] {
     let [r, g, b] = color.0;
     [r as u64, g as u64, b as u64]
 }
@@ -99,4 +111,8 @@ impl ColorMap for EPaperColorMap {
         let new_color = self.lookup(self.index_of(&c)).expect("Infallible");
         *color = new_color;
     }
+}
+
+pub fn rgb_to_display_u8(rgb: &RgbImage) -> Vec<u8> {
+    rgb.pixels().map(|p| DisplayColor::from(p) as u8).collect()
 }
