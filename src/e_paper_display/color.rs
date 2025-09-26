@@ -1,8 +1,6 @@
 use image::imageops::ColorMap;
-use palette::color_difference::{HyAb};
-use palette::Oklab;
+use image::Rgb;
 use std::collections::HashMap;
-use image::Pixel;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -15,15 +13,15 @@ pub enum DisplayColor {
     Green = 0x05,
 }
 
-impl From<DisplayColor> for Oklab {
+impl From<DisplayColor> for Rgb<u8> {
     fn from(value: DisplayColor) -> Self {
         match value {
-            DisplayColor::Black => Oklab::from_components((0., 0., 0.)),
-            DisplayColor::White => Oklab::from_components((255., 255., 255.)),
-            DisplayColor::Yellow => Oklab::from_components((255., 243., 56.)),
-            DisplayColor::Red => Oklab::from_components((191., 0., 0.)),
-            DisplayColor::Blue => Oklab::from_components((100., 64., 255.)),
-            DisplayColor::Green => Oklab::from_components((67., 138., 28.)),
+            DisplayColor::Black => Rgb::from([0, 0, 0]),
+            DisplayColor::White => Rgb::from([255, 255, 255]),
+            DisplayColor::Yellow => Rgb::from([255, 243, 56]),
+            DisplayColor::Red => Rgb::from([191, 0, 0]),
+            DisplayColor::Blue => Rgb::from([100, 64, 255]),
+            DisplayColor::Green => Rgb::from([67, 138, 28]),
         }
     }
 }
@@ -43,7 +41,7 @@ impl From<usize> for DisplayColor {
 }
 
 pub struct EPaperColorMap {
-    colormap: HashMap<DisplayColor, Oklab>,
+    colormap: HashMap<DisplayColor, Rgb<u8>>,
 }
 
 impl EPaperColorMap {
@@ -60,21 +58,22 @@ impl EPaperColorMap {
             colormap: HashMap::from_iter(colors.into_iter().map(|c| (c, c.into()))),
         }
     }
-
-    pub fn default_color(&self) -> &Oklab {
-        self.colormap.get(&DisplayColor::White).expect("Infallible")
-    }
 }
 
 impl ColorMap for EPaperColorMap {
-    type Color = Oklab;
+    type Color = Rgb<u8>;
 
     fn index_of(&self, color: &Self::Color) -> usize {
+        let [red, green, blue] = color.0;
         self.colormap
             .iter()
             .min_by(|(_, a), (_, b)| {
-                a.hybrid_distance(color.clone())
-                    .total_cmp(&b.hybrid_distance(color.clone()))
+                let [ar, ag, ab] = a.0;
+                let [br, bg, bb] = b.0;
+
+                ((red - ar) ^ 2 + (green - ag) ^ 2 + (blue - ab) ^ 2)
+                    .isqrt()
+                    .cmp(&((red - br) ^ 2 + (green - bg) ^ 2 + (blue - bb) ^ 2).isqrt())
             })
             .map(|(index, _)| index)
             .unwrap_or(&DisplayColor::White)

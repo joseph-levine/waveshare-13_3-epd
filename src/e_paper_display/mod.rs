@@ -9,9 +9,7 @@ use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
 use linux_embedded_hal::sysfs_gpio::{Direction, Error as GpioError, Pin};
 use linux_embedded_hal::{SPIError, SpidevDevice};
 use std::cmp::PartialEq;
-use std::fmt::{Display, Formatter};
 use std::io;
-use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 use thiserror::Error;
@@ -26,6 +24,9 @@ pub enum EpdError {
     #[error(transparent)]
     Gpio(#[from] GpioError),
 }
+pub const WIDTH: usize = 1_200;
+pub const HEIGHT: usize = 1_600;
+pub const HALF_WIDTH: usize = WIDTH / 2;
 
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -145,7 +146,7 @@ impl EpdDevice<SpidevDevice> {
         Ok(())
     }
 
-    pub fn send_command(
+    fn send_command(
         &mut self,
         command_code: CommandCode,
         selected_chip: SelectedChip,
@@ -157,6 +158,42 @@ impl EpdDevice<SpidevDevice> {
             self.set_send_mode(SendMode::Data)?;
             self.spi.write(data)?;
         }
+        Ok(())
+    }
+
+    fn send_data(
+        &mut self,
+        data: &[u8],
+        selected_chip: SelectedChip,
+    ) -> Result<(), EpdError> {
+        self.select_chip(selected_chip)?;
+        self.set_send_mode(SendMode::Data)?;
+        self.spi.write(data)?;
+        Ok(())
+    }
+
+    pub fn clear_screen(&mut self) -> Result<(), EpdError> {
+        let all_balls: &[u8; (HEIGHT * HALF_WIDTH) as usize] = &[0u8; (HEIGHT * HALF_WIDTH) as usize];
+        self.send_data(all_balls, SelectedChip::Main)?;
+        self.send_data(all_balls, SelectedChip::Peri)?;
+        Ok(())
+    }
+
+    pub fn send_image(&mut self, image: &[u8]) -> Result<(), EpdError> {
+        let mut top: [u8; HEIGHT * HALF_WIDTH] = [0u8;HEIGHT * HALF_WIDTH];
+        let mut bottom: [u8; HEIGHT * HALF_WIDTH] = [0u8;HEIGHT * HALF_WIDTH];
+        for (k,v) in image.iter().enumerate() {
+            let column = k % WIDTH;
+            let row = k / WIDTH;
+            if column < HALF_WIDTH {
+                top[row * HALF_WIDTH + column] = *v;
+            } else {
+                bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
+            }
+        }
+
+        self.send_data(&top, SelectedChip::Main)?;
+        self.send_data(&bottom, SelectedChip::Peri)?;
         Ok(())
     }
 
