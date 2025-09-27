@@ -47,6 +47,7 @@ where
     SPI: SpiDevice,
 {
     spi: SPI,
+    // data_pin: Pin,
     chip_select_main_pin: Pin,
     chip_select_peri_pin: Pin,
     clock_pin: Pin,
@@ -77,14 +78,17 @@ impl EpdDevice<SpidevDevice> {
 
         let data_or_cmd_pin = GpioPin::DataCommandPin.pin(Low, None)?;
 
-        let busy_pin = GpioPin::BusyPin.pin(Low, Some(Direction::Out))?;
+        let busy_pin = GpioPin::BusyPin.pin(Low, Some(Direction::In))?;
 
         let reset_pin = GpioPin::ResetPin.pin(Low, None)?;
 
         let power_pin = GpioPin::PowerPin.pin(High, None)?;
 
+        // let data_pin = GpioPin::SerialDataPin.pin(Low, None)?;
+
         Ok(EpdDevice {
             spi,
+            // data_pin,
             clock_pin,
             data_or_cmd_pin,
             chip_select_main_pin,
@@ -252,8 +256,8 @@ impl EpdDevice<SpidevDevice> {
             (CommandCode::BuckBoostVddn, SelectedChip::Main),
             (CommandCode::TftVcomPower, SelectedChip::Main),
         ];
-        for (command, main_only) in boot_sequence {
-            self.send_command(command, main_only)?;
+        for (command, chip) in boot_sequence {
+            self.send_command(command, chip)?;
         }
         Ok(())
     }
