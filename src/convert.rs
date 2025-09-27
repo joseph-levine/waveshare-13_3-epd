@@ -2,7 +2,7 @@ extern crate core;
 
 mod color;
 
-use crate::color::{rgb_to_display_4bit, EPaperColorMap};
+use crate::color::{rgb_to_display_4bit, e_paper_color_map::EPaperColorMap};
 use clap::Parser;
 use image::imageops::{dither, FilterType};
 use image::EncodableLayout;
