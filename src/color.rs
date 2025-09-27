@@ -28,13 +28,19 @@ impl DisplayColor {
 
 impl From<DisplayColor> for Rgb<u8> {
     fn from(value: DisplayColor) -> Self {
-        DisplayColor::rgb_map().get(&value).map(|v| v.clone()).expect("Should be impossible")
+        DisplayColor::rgb_map()
+            .get(&value)
+            .map(|v| v.clone())
+            .expect("Should be impossible")
     }
 }
 
 impl From<&Rgb<u8>> for DisplayColor {
     fn from(value: &Rgb<u8>) -> Self {
-        DisplayColor::rgb_map().iter().find_map(|(k, v)| if value == v { Some(k.clone()) } else { None }).unwrap_or_else(|| DisplayColor::White)
+        DisplayColor::rgb_map()
+            .iter()
+            .find_map(|(k, v)| if value == v { Some(k.clone()) } else { None })
+            .unwrap_or_else(|| DisplayColor::White)
     }
 }
 
@@ -88,9 +94,14 @@ impl ColorMap for EPaperColorMap {
             .min_by(|(_, a), (_, b)| {
                 let [ar, ag, ab] = to_u64(a);
                 let [br, bg, bb] = to_u64(b);
-                ((red - ar).pow(2) + (green - ag).pow(2) + (blue - ab).pow(2))
+                (red.abs_diff(ar).pow(2) + green.abs_diff(ag).pow(2) + blue.abs_diff(ab).pow(2))
                     .isqrt()
-                    .cmp(&((red - br).pow(2) + (green - bg).pow(2) + (blue - bb).pow(2)).isqrt())
+                    .cmp(
+                        &(red.abs_diff(br).pow(2)
+                            + green.abs_diff(bg).pow(2)
+                            + blue.abs_diff(bb).pow(2))
+                        .isqrt(),
+                    )
             })
             .map(|(index, _)| index)
             .unwrap_or(&DisplayColor::White)

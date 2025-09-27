@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let img = image::open(args.file)?;
-    let img = img.resize_to_fill(1200u32, 1600u32, FilterType::Lanczos3);
+    let img = img.resize_to_fill(1600u32, 1200u32, FilterType::Lanczos3);
     let img = img.rotate270();
     let mut img = img.into_rgb8();
 
