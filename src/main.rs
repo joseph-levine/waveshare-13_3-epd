@@ -5,11 +5,11 @@ mod color;
 
 use clap::Parser;
 use e_paper_display::EpdDevice;
-use image::imageops::{dither, FilterType};
 use std::error::Error;
-use std::fs;
+use std::{fs, mem};
 use std::path::PathBuf;
-use crate::e_paper_display::{HEIGHT, WIDTH};
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -25,6 +25,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     device.turn_display_on()?;
     device.send_image(&epd_image)?;
     device.sleep_display()?;
+    sleep(Duration::from_secs(30));
+    device.turn_display_on()?;
+    device.clear_screen()?;
+    sleep(Duration::from_secs(2));
+    drop(device);
 
     Ok(())
 }
