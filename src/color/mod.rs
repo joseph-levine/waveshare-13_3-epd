@@ -124,6 +124,11 @@ impl ColorMap for EPaperColorMap {
     }
 }
 
-pub fn rgb_to_display_u8(rgb: &RgbImage) -> Vec<u8> {
-    rgb.pixels().map(|p| DisplayColor::from(p) as u8).collect()
+pub fn rgb_to_display_4bit(rgb: &RgbImage) -> Vec<u8> {
+    rgb.pixels()
+        .map(DisplayColor::from)
+        .collect::<Vec<_>>()
+        .chunks(2)
+        .map(|pixels| (pixels[0] as u8) << 4 | pixels[1] as u8) /* pack the first byte as the upper 4 and the second as the lower 4 */
+        .collect()
 }
