@@ -1,5 +1,5 @@
 use std::io;
-use linux_embedded_hal::sysfs_gpio::{Direction, Pin};
+use sysfs_gpio::{Direction, Pin};
 
 #[derive(Debug)]
 #[repr(u8)]

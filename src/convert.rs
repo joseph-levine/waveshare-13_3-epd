@@ -1,6 +1,7 @@
 extern crate core;
 
 mod color;
+mod display_constants;
 
 use crate::color::{rgb_to_display_4bit, e_paper_color_map::EPaperColorMap};
 use clap::Parser;
@@ -10,6 +11,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use crate::display_constants::{HEIGHT, WIDTH};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -23,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let img = image::open(args.file)?;
-    let img = img.resize_to_fill(1600u32, 1200u32, FilterType::Lanczos3);
+    let img = img.resize_to_fill(WIDTH as u32, HEIGHT as u32, FilterType::Lanczos3);
     let img = img.rotate270();
     let mut img = img.into_rgb8();
 

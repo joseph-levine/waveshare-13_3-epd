@@ -1,31 +1,23 @@
-pub mod gpio_pin;
-pub mod command_code;
 
-use crate::e_paper_display::gpio_pin::Level::{High, Low};
-use crate::e_paper_display::{command_code::CommandCode, gpio_pin::GpioPin};
-use embedded_hal::spi::SpiDevice;
-use linux_embedded_hal::spidev::{SpiModeFlags, SpidevOptions};
-use linux_embedded_hal::sysfs_gpio::{Direction, Error as GpioError, Pin};
-use linux_embedded_hal::{SPIError, SpidevDevice};
+use crate::e_paper_display_driver::gpio_pin::Level::{High, Low};
+use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io;
+use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 use thiserror::Error;
 use tracing::info;
+use sysfs_gpio::{Direction, Error as GpioError, Pin};
+use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
 
 #[derive(Debug, Error)]
 pub enum EpdError {
-    #[error(transparent)]
-    Spi(#[from] SPIError),
     #[error(transparent)]
     Io(#[from]io::Error),
     #[error(transparent)]
     Gpio(#[from] GpioError),
 }
-pub const WIDTH: usize = 1_200;
-pub const HEIGHT: usize = 1_600;
-pub const HALF_WIDTH: usize = WIDTH / 2;
 
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -41,18 +33,19 @@ enum SelectedChip {
     Both,
 }
 
+struct SystemTimer {
+    timer: bcm2837_lpa::SYSTMR
+}
+
+
 #[derive(Debug)]
-pub struct EpdDevice<SPI>
-where
-    SPI: SpiDevice,
+pub struct EPaperDisplayBBDriver
 {
-    spi: SPI,
-    // data_pin: Pin,
+    data_pin: Pin,
     chip_select_main_pin: Pin,
     chip_select_peri_pin: Pin,
     clock_pin: Pin,
     data_or_cmd_pin: Pin,
-    // data_or_cmd_pin: Pin,
     reset_pin: Pin,
     busy_pin: Pin,
     power_pin: Pin,
@@ -60,15 +53,10 @@ where
     send_mode: SendMode,
 }
 
-impl EpdDevice<SpidevDevice> {
-    pub fn new() -> Result<EpdDevice<SpidevDevice>, EpdError> {
-        let mut spi = SpidevDevice::open("/dev/spidev0.0")?;
-        let options = SpidevOptions::new()
-            .bits_per_word(8)
-            .max_speed_hz(32_000_000)
-            .mode(SpiModeFlags::SPI_MODE_0)
-            .build();
-        spi.configure(&options)?;
+
+
+impl EPaperDisplayBBDriver {
+    pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
 
         let clock_pin = GpioPin::SerialClockPin.pin(Low, None)?;
 
@@ -84,11 +72,10 @@ impl EpdDevice<SpidevDevice> {
 
         let power_pin = GpioPin::PowerPin.pin(High, None)?;
 
-        // let data_pin = GpioPin::SerialDataPin.pin(Low, None)?;
+        let data_pin = GpioPin::SerialDataPin.pin(Low, None)?;
 
-        Ok(EpdDevice {
-            spi,
-            // data_pin,
+        Ok(EPaperDisplayBBDriver {
+            data_pin,
             clock_pin,
             data_or_cmd_pin,
             chip_select_main_pin,
@@ -99,6 +86,10 @@ impl EpdDevice<SpidevDevice> {
             send_mode: SendMode::Command,
             selected_chip: SelectedChip::Both,
         })
+    }
+    #[inline]
+    fn wait_for_timer(&mut self) {
+
     }
 
     fn select_chip(&mut self, selected_chip: SelectedChip) -> Result<(), EpdError> {
@@ -149,61 +140,13 @@ impl EpdDevice<SpidevDevice> {
         Ok(())
     }
 
-    fn send_command(
-        &mut self,
-        command_code: CommandCode,
-        selected_chip: SelectedChip,
-    ) -> Result<(), EpdError> {
+    fn send_command( &mut self, command_code: CommandCode, selected_chip: SelectedChip, ) -> Result<(), EpdError> {
         self.select_chip(selected_chip)?;
         self.set_send_mode(SendMode::Command)?;
         self.spi.write(&[command_code.cmd()])?;
         if let Some(data) = command_code.data() {
             self.set_send_mode(SendMode::Data)?;
             self.spi.write(data)?;
-        }
-        Ok(())
-    }
-
-    fn send_data(
-        &mut self,
-        data: &[u8],
-        selected_chip: SelectedChip,
-    ) -> Result<(), EpdError> {
-        self.select_chip(selected_chip)?;
-        self.set_send_mode(SendMode::Data)?;
-        self.spi.write(data)?;
-        Ok(())
-    }
-
-    pub fn clear_screen(&mut self) -> Result<(), EpdError> {
-        let all_balls: &[u8; (HEIGHT * HALF_WIDTH) as usize] = &[0u8; (HEIGHT * HALF_WIDTH) as usize];
-        self.send_data(all_balls, SelectedChip::Main)?;
-        self.send_data(all_balls, SelectedChip::Peri)?;
-        Ok(())
-    }
-
-    pub fn send_image(&mut self, image: &[u8]) -> Result<(), EpdError> {
-        let mut top: [u8; HEIGHT * HALF_WIDTH] = [0u8;HEIGHT * HALF_WIDTH];
-        let mut bottom: [u8; HEIGHT * HALF_WIDTH] = [0u8;HEIGHT * HALF_WIDTH];
-        for (k,v) in image.iter().enumerate() {
-            let column = k % WIDTH;
-            let row = k / WIDTH;
-            if column < HALF_WIDTH {
-                top[row * HALF_WIDTH + column] = *v;
-            } else {
-                bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
-            }
-        }
-
-        self.send_data(&top, SelectedChip::Main)?;
-        self.send_data(&bottom, SelectedChip::Peri)?;
-        Ok(())
-    }
-
-    pub fn reset(&self) -> Result<(), EpdError> {
-        for l in [High, Low, High, Low, High] {
-            self.reset_pin.set_value(l as u8)?;
-            sleep(Duration::from_millis(30));
         }
         Ok(())
     }
@@ -227,13 +170,13 @@ impl EpdDevice<SpidevDevice> {
         self.wait_for_not_busy()?;
 
         info!("Write POF");
-         self.send_command(CommandCode::Pof, SelectedChip::Both)?;
+        self.send_command(CommandCode::Pof, SelectedChip::Both)?;
 
         info!("Display Done");
         Ok(())
     }
 
-    pub fn init(&mut self) -> Result<(), EpdError> {
+    pub fn boot_display(&mut self) -> Result<(), EpdError> {
         info!("EPD init...");
         self.reset()?;
         self.wait_for_not_busy()?;
@@ -267,11 +210,47 @@ impl EpdDevice<SpidevDevice> {
         sleep(Duration::from_secs(2));
         Ok(())
     }
+
+    fn reset(&self) -> Result<(), EpdError> {
+        for l in [High, Low, High, Low, High] {
+            self.reset_pin.set_value(l as u8)?;
+            sleep(Duration::from_millis(30));
+        }
+        Ok(())
+    }
 }
 
-impl<SPI> Drop for EpdDevice<SPI>
+impl EPaperDisplayBBDriver {
+    pub fn clear_screen(&mut self) -> Result<(), EpdError> {
+        let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
+        self.spi.write(zeros)?;
+        Ok(())
+    }
+
+    pub fn send_image(&mut self, image: &[u8]) -> Result<(), EpdError> {
+        assert_eq!(image.len(), HEIGHT * WIDTH / 2);
+        let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8;DISPLAY_BYTES_PER_CHIP];
+        let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8;DISPLAY_BYTES_PER_CHIP];
+        for (k,v) in image.iter().enumerate() {
+            let column = k % WIDTH;
+            let row = k / WIDTH;
+            if column < HALF_WIDTH {
+                top[row * HALF_WIDTH + column] = *v;
+            } else {
+                bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
+            }
+        }
+
+        self.send_command(CommandCode::Dtm, SelectedChip::Main)?;
+        self.spi.write(top.as_ref())?;
+        self.send_command(CommandCode::Dtm, SelectedChip::Peri)?;
+        self.spi.write(bottom.as_ref())?;
+        Ok(())
+    }
+}
+
+impl Drop for EPaperDisplayBBDriver
 where
-    SPI: SpiDevice,
 {
     fn drop(&mut self) {
         // we're going to ignore errors here...
