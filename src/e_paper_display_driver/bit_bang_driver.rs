@@ -1,24 +1,24 @@
-
+use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
 use crate::e_paper_display_driver::gpio_pin::Level::{High, Low};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
+use embedded_time::duration::Extensions;
+use linux_embedded_hal::{CountDown, SysTimer};
 use std::cmp::PartialEq;
-use std::io;
-use std::io::Write;
+use std::io::Error as IoError;
+use std::ops::Add;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+use sysfs_gpio::{Direction, Error as GpioError, Pin};
 use thiserror::Error;
 use tracing::info;
-use sysfs_gpio::{Direction, Error as GpioError, Pin};
-use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
 
 #[derive(Debug, Error)]
 pub enum EpdError {
     #[error(transparent)]
-    Io(#[from]io::Error),
+    Io(#[from] IoError),
     #[error(transparent)]
     Gpio(#[from] GpioError),
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum SendMode {
@@ -33,14 +33,8 @@ enum SelectedChip {
     Both,
 }
 
-struct SystemTimer {
-    timer: bcm2837_lpa::SYSTMR
-}
-
-
 #[derive(Debug)]
-pub struct EPaperDisplayBBDriver
-{
+pub struct EPaperDisplayBBDriver {
     data_pin: Pin,
     chip_select_main_pin: Pin,
     chip_select_peri_pin: Pin,
@@ -51,13 +45,11 @@ pub struct EPaperDisplayBBDriver
     power_pin: Pin,
     selected_chip: SelectedChip,
     send_mode: SendMode,
+    timer: SysTimer,
 }
-
-
 
 impl EPaperDisplayBBDriver {
     pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
-
         let clock_pin = GpioPin::SerialClockPin.pin(Low, None)?;
 
         let chip_select_main_pin = GpioPin::SerialSelectMainPin.pin(Low, None)?;
@@ -85,11 +77,25 @@ impl EPaperDisplayBBDriver {
             power_pin,
             send_mode: SendMode::Command,
             selected_chip: SelectedChip::Both,
+            timer: SysTimer::new(),
         })
     }
-    #[inline]
-    fn wait_for_timer(&mut self) {
 
+    fn spi_write(&mut self, bytes: &[u8]) -> Result<(), EpdError> {
+        self.timer.start(1.microseconds()).expect("Infallible");
+        for byte in bytes {
+            let mut b = byte.clone();
+            for i in 0..u8::MAX {
+                self.clock_pin.set_value(Low as u8)?;
+                self.data_pin
+                    .set_value(if b & 0x80 == 0x80 { High } else { Low } as u8)?;
+                b = b << 1;
+                self.timer.wait()?;
+                self.clock_pin.set_value(High as u8)?;
+                self.timer.wait()?;
+            }
+        }
+        Ok(())
     }
 
     fn select_chip(&mut self, selected_chip: SelectedChip) -> Result<(), EpdError> {
@@ -140,13 +146,17 @@ impl EPaperDisplayBBDriver {
         Ok(())
     }
 
-    fn send_command( &mut self, command_code: CommandCode, selected_chip: SelectedChip, ) -> Result<(), EpdError> {
+    fn send_command(
+        &mut self,
+        command_code: CommandCode,
+        selected_chip: SelectedChip,
+    ) -> Result<(), EpdError> {
         self.select_chip(selected_chip)?;
         self.set_send_mode(SendMode::Command)?;
-        self.spi.write(&[command_code.cmd()])?;
+        self.spi_write(&[command_code.cmd()])?;
         if let Some(data) = command_code.data() {
             self.set_send_mode(SendMode::Data)?;
-            self.spi.write(data)?;
+            self.spi_write(data)?;
         }
         Ok(())
     }
@@ -223,15 +233,15 @@ impl EPaperDisplayBBDriver {
 impl EPaperDisplayBBDriver {
     pub fn clear_screen(&mut self) -> Result<(), EpdError> {
         let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
-        self.spi.write(zeros)?;
+        self.spi_write(zeros)?;
         Ok(())
     }
 
     pub fn send_image(&mut self, image: &[u8]) -> Result<(), EpdError> {
         assert_eq!(image.len(), HEIGHT * WIDTH / 2);
-        let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8;DISPLAY_BYTES_PER_CHIP];
-        let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8;DISPLAY_BYTES_PER_CHIP];
-        for (k,v) in image.iter().enumerate() {
+        let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
+        let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
+        for (k, v) in image.iter().enumerate() {
             let column = k % WIDTH;
             let row = k / WIDTH;
             if column < HALF_WIDTH {
@@ -242,16 +252,14 @@ impl EPaperDisplayBBDriver {
         }
 
         self.send_command(CommandCode::Dtm, SelectedChip::Main)?;
-        self.spi.write(top.as_ref())?;
+        self.spi_write(top.as_ref())?;
         self.send_command(CommandCode::Dtm, SelectedChip::Peri)?;
-        self.spi.write(bottom.as_ref())?;
+        self.spi_write(bottom.as_ref())?;
         Ok(())
     }
 }
 
-impl Drop for EPaperDisplayBBDriver
-where
-{
+impl Drop for EPaperDisplayBBDriver {
     fn drop(&mut self) {
         // we're going to ignore errors here...
         let _ = self.chip_select_main_pin.set_value(Low as u8);
