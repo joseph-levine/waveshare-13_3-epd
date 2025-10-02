@@ -163,8 +163,9 @@ impl EPaperDisplayBBDriver {
 
     fn wait_for_not_busy(&self) -> Result<(), EpdError> {
         while self.busy_pin.get_value()? == (Low as u8) {
-            sleep(Duration::from_millis(5))
+            sleep(Duration::from_millis(10));
         }
+        sleep(Duration::from_millis(20));
         Ok(())
     }
 
