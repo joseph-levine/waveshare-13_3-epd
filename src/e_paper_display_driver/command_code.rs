@@ -61,10 +61,10 @@ impl CommandCode {
             CommandCode::Psr => Some(&PSR_DATA),
             CommandCode::Pwr => Some(&PWR_DATA),
             CommandCode::Pof => Some(&POF_DATA),
-            CommandCode::Pon => None,
+            CommandCode::Pon => None, // Power On, no data
             CommandCode::BtstN => Some(&BTST_N_DATA),
             CommandCode::BtstP => Some(&BTST_P_DATA),
-            CommandCode::Dtm => None, // FIXME?
+            CommandCode::Dtm => None, // Display the image, the data is the image itself
             CommandCode::Drf => Some(&DRF_DATA),
             CommandCode::Cdi => Some(&CDI_DATA),
             CommandCode::Tcon => Some(&TCON_DATA),
