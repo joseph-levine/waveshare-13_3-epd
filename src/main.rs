@@ -25,25 +25,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Reading file...");
     let epd_image = fs::read(&args.file)?;
 
+    let sleep_secs = 10;
+
     info!("File loaded. Init driver.");
     let mut device = Driver::new()?;
-    info!("Booting display");
-    device.boot_display();
-    info!("booted");
-    device.turn_display_on();
-    info!("turned on");
-    device.send_image(&epd_image);
-    info!("image sent");
-    device.sleep_display();
-    info!("sleeping for 10s");
-    sleep(Duration::from_secs(10));
-    device.turn_display_on();
-    info!("display back on");
+    info!("Device init. Clearing display");
     device.clear_screen();
-    info!("display to white");
+    info!("Cleared. Sending image...");
+    device.send_image(&epd_image);
+    info!("Image sent. Sleeping display...");
+    device.sleep_display();
+    info!("Display asleep. Waiting {}s", sleep_secs);
+    sleep(Duration::from_secs(sleep_secs));
+    info!("Clearing screen");
+    device.clear_screen();
+    info!("Screen clear. Waiting 2s...");
     sleep(Duration::from_secs(2));
+    info!("Dropping device...");
     drop(device);
-    info!("done");
+    info!("Complete");
 
     Ok(())
 }

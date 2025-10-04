@@ -4,7 +4,7 @@ pub enum CommandCode {
     Psr = 0x00,
     Pwr = 0x01,
     Pof = 0x02,
-    Pon = 0x04,
+    PowerOn = 0x04,
     BtstN = 0x05,
     BtstP = 0x06,
     Dtm = 0x10,
@@ -61,7 +61,7 @@ impl CommandCode {
             CommandCode::Psr => Some(&PSR_DATA),
             CommandCode::Pwr => Some(&PWR_DATA),
             CommandCode::Pof => Some(&POF_DATA),
-            CommandCode::Pon => None, // Power On, no data
+            CommandCode::PowerOn => None, // Power On, no data
             CommandCode::BtstN => Some(&BTST_N_DATA),
             CommandCode::BtstP => Some(&BTST_P_DATA),
             CommandCode::Dtm => None, // Display the image, the data is the image itself
