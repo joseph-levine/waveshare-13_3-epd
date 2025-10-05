@@ -42,9 +42,9 @@ pub struct EPaperDisplayBBDriver {
 }
 
 fn spin_sleep() {
-    let mut loops = 10;
-    while loops > 0 {
-        loops -= 1;
+    let start = Instant::now();
+    while start.elapsed().as_nanos() < 1000u128 {
+        /* no op */
     }
 }
 
@@ -134,6 +134,7 @@ impl EPaperDisplayBBDriver {
                 self.clock_pin.write(High);
             }
         }
+        sleep(Duration::from_millis(5));
     }
 
     fn select_chip(&mut self, new_selection: SelectedChip) {
@@ -154,6 +155,7 @@ impl EPaperDisplayBBDriver {
             self.chip_select_peri_pin
                 .write(if select_peri { Low } else { High });
         }
+        spin_sleep();
         self.selected_chip = new_selection;
     }
 
