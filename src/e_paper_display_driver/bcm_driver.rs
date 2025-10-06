@@ -26,7 +26,7 @@ enum SelectedChip {
 }
 
 #[derive(Debug)]
-pub struct EPaperDisplayBBDriver {
+pub struct EPaperDisplayBcmDriver {
     selected_chip: SelectedChip,
 }
 
@@ -39,8 +39,8 @@ fn spin_sleep(duration: Duration) -> u64 {
     loops
 }
 
-impl EPaperDisplayBBDriver {
-    pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
+impl EPaperDisplayBcmDriver {
+    pub fn new() -> Result<EPaperDisplayBcmDriver, EpdError> {
         let init_status: c_int;
         /// Safety: Should return status instead of crashing...
         unsafe {
@@ -68,7 +68,7 @@ impl EPaperDisplayBBDriver {
         reset_pin.write(Level::Low);
         power_pin.write(Level::High);
 
-        let mut this = EPaperDisplayBBDriver {
+        let mut this = EPaperDisplayBcmDriver {
             selected_chip: SelectedChip::Both,
         };
 
@@ -195,7 +195,7 @@ impl EPaperDisplayBBDriver {
     }
 }
 
-impl EPaperDisplayBBDriver {
+impl EPaperDisplayBcmDriver {
     pub fn clear_screen(&mut self) {
         let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
         self.select_chip(SelectedChip::Main);
@@ -235,7 +235,7 @@ impl EPaperDisplayBBDriver {
     }
 }
 
-impl Drop for EPaperDisplayBBDriver {
+impl Drop for EPaperDisplayBcmDriver {
     fn drop(&mut self) {
         // we're going to ignore errors here...
         let _ = GpioPin::SerialSelectMainPin.write(Level::Low);

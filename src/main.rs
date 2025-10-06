@@ -5,7 +5,7 @@ mod display_constants;
 mod e_paper_display_driver;
 
 use clap::Parser;
-use e_paper_display_driver::bit_bang_driver::EPaperDisplayBBDriver as Driver;
+use e_paper_display_driver::bcm_driver::EPaperDisplayBcmDriver as Driver;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
