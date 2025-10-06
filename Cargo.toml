@@ -20,14 +20,10 @@ convert = [
     "dep:image",
     "dep:palette"
 ]
-display = [
-    "dep:bindgen"
-]
 
 [[bin]]
 name = 'display'
 path = "src/main.rs"
-required-features = ["bindgen"]
 
 [[bin]]
 name = 'convert'
