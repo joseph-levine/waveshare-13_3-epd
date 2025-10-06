@@ -1,23 +1,20 @@
 use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-// use crate::e_paper_display_driver::gpio_pin::Level::{High, Low};
+use crate::e_paper_display_driver::bcm2835::{bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
-use std::thread;
+use std::os::raw::{c_char, c_int};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-// use linux_embedded_hal::nb::block;
-use rppal::gpio::{Gpio, InputPin, OutputPin, Error as GpioError};
-use rppal::gpio::Level::{High, Low};
 use thiserror::Error;
-use tracing::info;
+use tracing::{debug, info};
+use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 
 #[derive(Debug, Error)]
 pub enum EpdError {
     #[error(transparent)]
     Io(#[from] IoError),
-    #[error(transparent)]
-    Gpio(#[from] GpioError),
+    #[error("broadcom init error")]BcmInitError
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -30,15 +27,6 @@ enum SelectedChip {
 
 #[derive(Debug)]
 pub struct EPaperDisplayBBDriver {
-    gpio: Gpio,
-    data_pin: OutputPin,
-    chip_select_main_pin: OutputPin,
-    chip_select_peri_pin: OutputPin,
-    clock_pin: OutputPin,
-    data_or_cmd_pin: OutputPin,
-    reset_pin: OutputPin,
-    busy_pin: InputPin,
-    power_pin: OutputPin,
     selected_chip: SelectedChip,
 }
 
@@ -53,35 +41,34 @@ fn spin_sleep(duration: Duration) -> u64 {
 
 impl EPaperDisplayBBDriver {
     pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
-        let gpio = Gpio::new()?;
+        let init_status: c_int;
+        /// Safety: Should return status instead of crashing...
+        unsafe {
+            init_status = bcm2835_init();
+        }
+        if init_status != 0 {
+            return Err(EpdError::BcmInitError);
+        }
 
-        let mut clock_pin = gpio.get(GpioPin::SerialClockPin as u8)?.into_output();
-        let mut data_pin = gpio.get(GpioPin::SerialDataPin as u8)?.into_output();
-        let mut chip_select_main_pin = gpio.get(GpioPin::SerialSelectMainPin as u8)?.into_output();
-        let mut chip_select_peri_pin = gpio.get(GpioPin::SerialSelectPeriPin as u8)?.into_output();
-        let mut data_or_cmd_pin = gpio.get(GpioPin::DataCommandPin as u8)?.into_output();
-        let mut reset_pin = gpio.get(GpioPin::ResetPin as u8)?.into_output();
-        let busy_pin = gpio.get(GpioPin::BusyPin as u8)?.into_input();
-        let mut power_pin = gpio.get(GpioPin::PowerPin as u8)?.into_output();
+        GpioPin::set_all_modes();
 
-        clock_pin.set_low();
-        data_pin.set_low();
-        chip_select_main_pin.set_low();
-        chip_select_peri_pin.set_low();
-        data_or_cmd_pin.set_low();
-        reset_pin.set_low();
-        power_pin.set_high();
+        let clock_pin = GpioPin::SerialClockPin;
+        let data_pin = GpioPin::SerialDataPin;
+        let chip_select_main_pin = GpioPin::SerialSelectMainPin;
+        let chip_select_peri_pin = GpioPin::SerialSelectPeriPin;
+        let data_or_cmd_pin = GpioPin::DataCommandPin;
+        let reset_pin = GpioPin::ResetPin;
+        let power_pin = GpioPin::PowerPin;
+
+        clock_pin.write(Level::Low);
+        data_pin.write(Level::Low);
+        chip_select_main_pin.write(Level::Low);
+        chip_select_peri_pin.write(Level::Low);
+        data_or_cmd_pin.write(Level::Low);
+        reset_pin.write(Level::Low);
+        power_pin.write(Level::High);
 
         let mut this = EPaperDisplayBBDriver {
-            gpio,
-            data_pin,
-            clock_pin,
-            data_or_cmd_pin,
-            chip_select_main_pin,
-            chip_select_peri_pin,
-            reset_pin,
-            busy_pin,
-            power_pin,
             selected_chip: SelectedChip::Both,
         };
 
@@ -113,31 +100,46 @@ impl EPaperDisplayBBDriver {
         Ok(this)
     }
 
-    fn spi_write(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            let mut b = byte.clone();
-            for _i in 0..u8::MAX {
-                let _ = spin_sleep(Duration::from_micros(1));
-                self.clock_pin.write(Low);
-                self.data_pin
-                    .write(if b & 0x80 == 0x80 { High } else { Low } );
-                b = b << 1;
-                let _ = spin_sleep(Duration::from_micros(1));
-                self.clock_pin.write(High);
-            }
+    fn spi_write_byte(&mut self, byte: u8) {
+        /// SAFETY: If SPI hasn't been set up correctly
+        unsafe {
+            bcm2835_spi_transfer(byte);
         }
-        info!("spi written");
     }
 
-    fn select_chip(&mut self, new_selection: SelectedChip){
-        if new_selection == self.selected_chip {
-            return ;
+    fn spi_write(&mut self, bytes: &[u8]) {
+        let length = bytes.len();
+        assert!(length < u32::MAX as usize);
+
+        let mut v_bytes = Vec::from(bytes);
+        let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
+        let mut received = Vec::with_capacity(length);
+        let mut c_received_chars = received.as_mut_ptr() as *mut c_char;
+
+        /// SAFETY: If SPI hasn't been set up correctly
+        unsafe {
+            bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
         }
-        // low is selected
-        // should set main on?
-        // if new in (both, main) and selected not in (both, main)
-        self.chip_select_main_pin.write(if new_selection == SelectedChip::Main || new_selection == SelectedChip::Both { Low } else { High });
-        self.chip_select_peri_pin.write(if new_selection == SelectedChip::Main || new_selection == SelectedChip::Peri { Low } else { High });
+    }
+
+    fn select_chip(&mut self, new_selection: SelectedChip) {
+        if new_selection == self.selected_chip {
+            return;
+        }
+        let main_selected = [SelectedChip::Main, SelectedChip::Both].contains(&self.selected_chip);
+        let select_main = [SelectedChip::Main, SelectedChip::Both].contains(&new_selection);
+        let peri_selected = [SelectedChip::Peri, SelectedChip::Both].contains(&self.selected_chip);
+        let select_peri = [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection);
+        if main_selected != select_main {
+            debug!("digital_write pin: 8, value: {}", if select_main {"0"} else {"1"} );
+            GpioPin::SerialSelectMainPin
+                .write(if select_main { Level::Low } else { Level::High });
+        }
+        if peri_selected != select_peri {
+            debug!("digital_write pin: 7, value: {}", if select_peri {"0"} else {"1"} );
+            GpioPin::SerialSelectPeriPin
+                .write(if select_peri { Level::Low } else { Level::High });
+        }
         self.selected_chip = new_selection;
     }
 
@@ -145,7 +147,7 @@ impl EPaperDisplayBBDriver {
         &mut self,
         command_code: CommandCode,
         selected_chip: SelectedChip,
-    )  {
+    ) {
         self.select_chip(selected_chip);
         let mut full_cmd = vec![command_code.cmd()];
         if let Some(data) = command_code.data() {
@@ -157,7 +159,7 @@ impl EPaperDisplayBBDriver {
 
     fn wait_for_not_busy(&self) {
         info!("waiting for not busy");
-        while self.busy_pin.read() == Low {
+        while GpioPin::BusyPin.read() == Level::Low {
             sleep(Duration::from_millis(10));
         }
         sleep(Duration::from_millis(20));
@@ -186,8 +188,8 @@ impl EPaperDisplayBBDriver {
     }
 
     fn reset(&mut self) {
-        for l in [High, Low, High, Low, High] {
-            self.reset_pin.write(l);
+        for l in [Level::High, Level::Low, Level::High, Level::Low, Level::High] {
+            GpioPin::ResetPin.write(l);
             sleep(Duration::from_millis(30));
         }
     }
@@ -197,15 +199,17 @@ impl EPaperDisplayBBDriver {
     pub fn clear_screen(&mut self) {
         let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
         self.select_chip(SelectedChip::Main);
+        self.spi_write(&[CommandCode::Dtm.cmd()]);
         self.spi_write(zeros);
         self.select_chip(SelectedChip::Neither);
         self.select_chip(SelectedChip::Peri);
+        self.spi_write(&[CommandCode::Dtm.cmd()]);
         self.spi_write(zeros);
         self.select_chip(SelectedChip::Neither);
         self.turn_display_on();
     }
 
-    pub fn send_image(&mut self, image: &[u8])  {
+    pub fn send_image(&mut self, image: &[u8]) {
         assert_eq!(image.len(), HEIGHT * WIDTH / 2);
         let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
         let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
@@ -234,10 +238,10 @@ impl EPaperDisplayBBDriver {
 impl Drop for EPaperDisplayBBDriver {
     fn drop(&mut self) {
         // we're going to ignore errors here...
-        let _ = self.chip_select_main_pin.write(Low);
-        let _ = self.chip_select_peri_pin.write(Low);
-        let _ = self.data_or_cmd_pin.write(Low);
-        let _ = self.reset_pin.write(Low);
-        let _ = self.power_pin.write(Low);
+        let _ = GpioPin::SerialSelectMainPin.write(Level::Low);
+        let _ = GpioPin::SerialSelectPeriPin.write(Level::Low);
+        let _ = GpioPin::DataCommandPin.write(Level::Low);
+        let _ = GpioPin::ResetPin.write(Level::Low);
+        let _ = GpioPin::PowerPin.write(Level::Low);
     }
 }
