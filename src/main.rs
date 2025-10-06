@@ -1,6 +1,3 @@
-extern crate core;
-
-mod color;
 mod display_constants;
 mod e_paper_display_driver;
 
