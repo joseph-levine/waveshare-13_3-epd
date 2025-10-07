@@ -1,46 +1,53 @@
-mod display_constants;
-mod e_paper_display_driver;
+extern crate core;
 
+mod color;
+mod display_constants;
+
+use crate::color::{rgb_to_display_4bit, e_paper_color_map::EPaperColorMap};
 use clap::Parser;
-use e_paper_display_driver::bcm_driver::EPaperDisplayBcmDriver as Driver;
+use image::imageops::{dither, FilterType};
+use image::EncodableLayout;
 use std::error::Error;
-use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
-use std::thread::sleep;
-use std::time::Duration;
 use tracing::info;
-use tracing::metadata::LevelFilter;
+use crate::display_constants::{HEIGHT, WIDTH};
 
 #[derive(Debug, Parser)]
 struct Args {
     file: PathBuf,
+    out_file: PathBuf,
+    #[clap(long)]
+    dithered_file: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt().with_max_level(LevelFilter::DEBUG).init();
+    tracing_subscriber::fmt::init();
     let args = Args::parse();
-    info!("Reading file...");
-    let epd_image = fs::read(&args.file)?;
 
-    let sleep_secs = 10;
+    let img = image::open(&args.file)?;
+    info!("Opened image {}", &args.file.display());
+    let img = img.resize_to_fill(WIDTH as u32, HEIGHT as u32, FilterType::Lanczos3);
+    info!("Resized");
+    let img = img.rotate270();
+    info!("Rotated");
+    let mut img = img.into_rgb8();
+    info!("To rgb 8 bit");
 
-    info!("File loaded. Init driver.");
-    let mut device = Driver::new()?;
-    info!("Device init. Clearing display");
-    device.clear_screen();
-    info!("Cleared. Sending image...");
-    device.send_image(&epd_image);
-    info!("Image sent. Sleeping display...");
-    device.sleep_display();
-    info!("Display asleep. Waiting {}s", sleep_secs);
-    sleep(Duration::from_secs(sleep_secs));
-    info!("Clearing screen");
-    device.clear_screen();
-    info!("Screen clear. Waiting 2s...");
-    sleep(Duration::from_secs(2));
-    info!("Dropping device...");
-    drop(device);
-    info!("Complete");
+    let epd_map = EPaperColorMap::new();
+    dither(&mut img, &epd_map);
+    info!("Dithered");
+    if let Some(dither_path) = args.dithered_file {
+        img.save(dither_path)?;
+        info!("Saved dithered image");
+    }
 
+    let epd_image = rgb_to_display_4bit(&img);
+    info!("Image packed to 4bit format");
+
+    let mut file = File::create(&args.out_file)?;
+    file.write_all(epd_image.as_bytes())?;
+    info!("Image written. Done");
     Ok(())
 }
