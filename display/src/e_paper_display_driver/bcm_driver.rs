@@ -10,10 +10,10 @@ use thiserror::Error;
 use tracing::info;
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EpdError {
-    // #[error(transparent)]
-    Io(IoError),
+    #[error(transparent)]
+    Io(#[from] IoError),
     #[error("broadcom init error")]BcmInitError
 }
 
