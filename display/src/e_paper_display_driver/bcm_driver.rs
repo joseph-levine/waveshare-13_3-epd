@@ -40,14 +40,14 @@ fn spin_sleep(duration: Duration) -> u64 {
 }
 
 impl EPaperDisplayBcmDriver {
-    pub fn new() -> EPaperDisplayBcmDriver {
+    pub fn new() -> Result<EPaperDisplayBcmDriver, EpdError> {
         let init_status: c_int;
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
         }
         if init_status != 0 {
-            panic!("BCM2835 initialization failed");
+           return Err(EpdError::BcmInitError);
         }
 
         GpioPin::set_all_modes();
@@ -97,7 +97,7 @@ impl EPaperDisplayBcmDriver {
             this.send_command(command, chip);
         }
 
-        this
+        Ok(this)
     }
 
     fn spi_write_byte(&mut self, byte: u8) {
