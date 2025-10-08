@@ -25,15 +25,18 @@ fn main() {
     // automatically know it must look for a `libbcm2835.a` file.
     println!("cargo:rustc-link-lib=bcm2835");
 
+    println!("cargo::rerun-if-changed=src/bcm2835.c");
+    println!("cargo::rerun-if-changed=src/bcm2835.h");
+
     // Run `clang` to compile the `bcm2835.c` file into a `bcm2835.o` object file.
     // Unwrap if it is not possible to spawn the process.
-    if !std::process::Command::new("clang")
+    if !std::process::Command::new("cc")
         .arg("-c")
         .arg("-o")
         .arg(&obj_path)
         .arg(libdir_path.join("bcm2835.c"))
         .output()
-        .expect("could not spawn `clang`")
+        .expect("could not spawn `cc`")
         .status
         .success()
     {
@@ -72,7 +75,7 @@ fn main() {
         .expect("Unable to generate bindings");
 
     // Write the bindings to the $OUT_DIR/bindings.rs file.
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bcm2835_bindings.rs");
     bindings
         .write_to_file(out_path)
         .expect("Couldn't write bindings!");
