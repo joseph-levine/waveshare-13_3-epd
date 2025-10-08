@@ -158,7 +158,7 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn spi_write_byte(&mut self, byte: u8) {
-        debug!("SPI write 1 byte", byte);
+        debug!("SPI write 1 byte");
         /// SAFETY: If SPI hasn't been set up correctly
         unsafe {
             bcm2835_spi_transfer(byte);
