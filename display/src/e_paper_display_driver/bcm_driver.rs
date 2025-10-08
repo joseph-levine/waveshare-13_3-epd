@@ -6,16 +6,16 @@ use std::io::Error as IoError;
 use std::os::raw::{c_char, c_int};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-use thiserror::Error;
-use tracing::{debug, info};
+// use thiserror::Error;
+// use tracing::{debug, info};
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 
-#[derive(Debug, Error)]
-pub enum EpdError {
-    #[error(transparent)]
-    Io(#[from] IoError),
-    #[error("broadcom init error")]BcmInitError
-}
+// #[derive(Debug)]
+// pub enum EpdError {
+//     // #[error(transparent)]
+//     Io(IoError),
+//     #[error("broadcom init error")]BcmInitError
+// }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum SelectedChip {
@@ -40,14 +40,14 @@ fn spin_sleep(duration: Duration) -> u64 {
 }
 
 impl EPaperDisplayBcmDriver {
-    pub fn new() -> Result<EPaperDisplayBcmDriver, EpdError> {
+    pub fn new() -> EPaperDisplayBcmDriver {
         let init_status: c_int;
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
         }
         if init_status != 0 {
-            return Err(EpdError::BcmInitError);
+            panic!("BCM2835 initialization failed");
         }
 
         GpioPin::set_all_modes();
@@ -97,7 +97,7 @@ impl EPaperDisplayBcmDriver {
             this.send_command(command, chip);
         }
 
-        Ok(this)
+        this
     }
 
     fn spi_write_byte(&mut self, byte: u8) {
@@ -131,12 +131,12 @@ impl EPaperDisplayBcmDriver {
         let peri_selected = [SelectedChip::Peri, SelectedChip::Both].contains(&self.selected_chip);
         let select_peri = [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection);
         if main_selected != select_main {
-            debug!("digital_write pin: 8, value: {}", if select_main {"0"} else {"1"} );
+            // debug!("digital_write pin: 8, value: {}", if select_main {"0"} else {"1"} );
             GpioPin::SerialSelectMainPin
                 .write(if select_main { Level::Low } else { Level::High });
         }
         if peri_selected != select_peri {
-            debug!("digital_write pin: 7, value: {}", if select_peri {"0"} else {"1"} );
+            // debug!("digital_write pin: 7, value: {}", if select_peri {"0"} else {"1"} );
             GpioPin::SerialSelectPeriPin
                 .write(if select_peri { Level::Low } else { Level::High });
         }
@@ -158,7 +158,7 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn wait_for_not_busy(&self) {
-        info!("waiting for not busy");
+        println!("waiting for not busy");
         while GpioPin::BusyPin.read() == Level::Low {
             sleep(Duration::from_millis(10));
         }
@@ -166,20 +166,20 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn turn_display_on(&mut self) {
-        info!("Write PON");
+        println!("Write PON");
         self.send_command(CommandCode::PowerOn, SelectedChip::Both);
         self.wait_for_not_busy();
 
         sleep(Duration::from_millis(50));
 
-        info!("Write DRF");
+        println!("Write DRF");
         self.send_command(CommandCode::Drf, SelectedChip::Both);
         self.wait_for_not_busy();
 
-        info!("Write POF");
+        println!("Write POF");
         self.send_command(CommandCode::Pof, SelectedChip::Both);
 
-        info!("Display On");
+        println!("Display On");
     }
 
     pub fn sleep_display(&mut self) {
