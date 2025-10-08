@@ -4,7 +4,7 @@ use crate::e_paper_display_driver::bcm2835::{
     bcm2835_gpio_lev, bcm2835_gpio_write,
 };
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum Level {
     Low = 0x00,
@@ -61,68 +61,6 @@ pub enum GpioPin {
 impl From<GpioPin> for u8 {
     fn from(value: GpioPin) -> Self {
         value as u8
-    }
-}
-
-impl GpioReadWrite for GpioPin {
-    fn set_all_modes() {
-        for pin in &[
-            Self::SerialClockPin,
-            Self::SerialDataPin,
-            Self::SerialSelectMainPin,
-            Self::SerialSelectPeriPin,
-            Self::DataCommandPin,
-            Self::ResetPin,
-            Self::BusyPin,
-            Self::PowerPin,
-        ] {
-            pin.set_mode();
-        }
-    }
-
-    fn set_mode(&self) {
-        let pin: u8 = (*self).into();
-
-        let direction = match self {
-            Self::SerialClockPin => FSEL_OUTPUT,
-            Self::SerialDataPin => FSEL_OUTPUT,
-            Self::SerialSelectMainPin => FSEL_OUTPUT,
-            Self::SerialSelectPeriPin => FSEL_OUTPUT,
-            Self::DataCommandPin => FSEL_OUTPUT,
-            Self::ResetPin => FSEL_OUTPUT,
-            Self::BusyPin => FSEL_INPUT,
-            Self::PowerPin => FSEL_OUTPUT,
-        } as u8;
-
-        /// SAFETY: all these specific cases should be safe
-        unsafe {
-            bcm2835_gpio_fsel(pin, direction)
-        }
-    }
-
-    fn write(&self, level: Level) {
-        // can't write to busy pin
-        assert_ne!(*self, Self::BusyPin);
-        let pin: u8 = (*self).into();
-        let level_u8: u8 = level.into();
-        /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
-        /// For this specific display, only the BusyPin should fail to write, and that's handled in the above assertion.
-        unsafe {
-            bcm2835_gpio_write(pin, level_u8);
-        }
-    }
-
-    fn read(&self) -> Level {
-        // the display only supports reading from the busy pin
-        assert_eq!(*self, Self::BusyPin);
-        let pin = (*self).into();
-        let mut level_u8: u8 ;
-        /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
-        /// For this specific display, only the BusyPin should be able to read, and that's handled in the above assertion.
-        unsafe {
-            level_u8 = bcm2835_gpio_lev(pin);
-        }
-        level_u8.into()
     }
 }
 

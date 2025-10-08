@@ -1,5 +1,5 @@
 use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-use crate::e_paper_display_driver::bcm2835::{bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb};
+use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
@@ -7,7 +7,7 @@ use std::os::raw::{c_char, c_int};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use tracing::info;
+use tracing::{debug, info};
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 
 #[derive(Debug, Error)]
@@ -30,13 +30,70 @@ pub struct EPaperDisplayBcmDriver {
     selected_chip: SelectedChip,
 }
 
-fn spin_sleep(duration: Duration) -> u64 {
-    let mut loops = 0u64;
-    let start = Instant::now();
-    while Instant::now().duration_since(start) < duration {
-        loops += 1;
+impl GpioReadWrite for GpioPin {
+    fn set_all_modes() {
+        for pin in &[
+            Self::SerialClockPin,
+            Self::SerialDataPin,
+            Self::SerialSelectMainPin,
+            Self::SerialSelectPeriPin,
+            Self::DataCommandPin,
+            Self::ResetPin,
+            Self::BusyPin,
+            Self::PowerPin,
+        ] {
+            pin.set_mode();
+        }
     }
-    loops
+
+    fn set_mode(&self) {
+        let pin: u8 = (*self).into();
+
+        let direction = match &self {
+            Self::SerialClockPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::SerialDataPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::SerialSelectMainPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::SerialSelectPeriPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::DataCommandPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::ResetPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::BusyPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_INPT,
+            Self::PowerPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+        } as u8;
+
+        debug!("FSEL on {:?}", &self);
+
+        /// SAFETY: all these specific cases should be safe
+        unsafe {
+            bcm2835_gpio_fsel(pin, direction)
+        }
+    }
+
+    fn write(&self, level: Level) {
+        // can't write to busy pin
+        assert_ne!(*self, Self::BusyPin);
+        let pin: u8 = (*self).into();
+        let level_u8: u8 = level.into();
+        debug!("Writing to pin {}, level: {} AKA {:?}", pin, level_u8, level);
+        /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
+        /// For this specific display, only the BusyPin should fail to write, and that's handled in the above assertion.
+        unsafe {
+            bcm2835_gpio_write(pin, level_u8);
+        }
+    }
+
+    fn read(&self) -> Level {
+        // the display only supports reading from the busy pin
+        assert_eq!(*self, Self::BusyPin);
+        debug!("Reading from busy pin...");
+        let pin = (*self).into();
+        let mut level_u8: u8 ;
+        /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
+        /// For this specific display, only the BusyPin should be able to read, and that's handled in the above assertion.
+        unsafe {
+            level_u8 = bcm2835_gpio_lev(pin);
+        }
+        level_u8.into()
+    }
 }
 
 impl EPaperDisplayBcmDriver {
@@ -101,6 +158,7 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn spi_write_byte(&mut self, byte: u8) {
+        debug!("SPI write 1 byte", byte);
         /// SAFETY: If SPI hasn't been set up correctly
         unsafe {
             bcm2835_spi_transfer(byte);
@@ -110,6 +168,7 @@ impl EPaperDisplayBcmDriver {
     fn spi_write(&mut self, bytes: &[u8]) {
         let length = bytes.len();
         assert!(length < u32::MAX as usize);
+        debug!("SPI write {} bytes", length);
 
         let mut v_bytes = Vec::from(bytes);
         let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
