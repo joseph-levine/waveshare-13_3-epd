@@ -46,7 +46,7 @@ impl EPaperDisplayBcmDriver {
         unsafe {
             init_status = bcm2835_init();
         }
-        if init_status != 0 {
+        if init_status == 0 {
            return Err(EpdError::BcmInitError);
         }
 
