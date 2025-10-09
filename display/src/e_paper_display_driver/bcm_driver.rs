@@ -1,20 +1,26 @@
-use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb, bcm2835_spi_setClockDivider, bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_256};
+use crate::display_constants::{DISPLAY_BYTES_TOTAL, DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
+use crate::e_paper_display_driver::bcm2835::{
+    bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128, bcm2835SPIMode_BCM2835_SPI_MODE0,
+    bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init,
+    bcm2835_spi_setClockDivider, bcm2835_spi_setDataMode, bcm2835_spi_transfer,
+    bcm2835_spi_transfernb,
+};
+use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
 use std::os::raw::{c_char, c_int};
 use std::thread::sleep;
-use std::time::{Duration};
+use std::time::Duration;
 use thiserror::Error;
 use tracing::{debug, info};
-use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 
 #[derive(Debug, Error)]
 pub enum EpdError {
     #[error(transparent)]
     Io(#[from] IoError),
-    #[error("broadcom init error")]BcmInitError
+    #[error("broadcom init error")]
+    BcmInitError,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -26,7 +32,9 @@ enum SelectedChip {
 }
 
 #[derive(Debug)]
-pub struct EPaperDisplayBcmDriver ;
+pub struct EPaperDisplayBcmDriver {
+    initialized: bool,
+}
 
 impl GpioReadWrite for GpioPin {
     fn set_all_modes() {
@@ -48,14 +56,30 @@ impl GpioReadWrite for GpioPin {
         let pin: u8 = (*self).into();
 
         let direction = match &self {
-            Self::SerialClockPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::SerialDataPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::SerialSelectMainPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::SerialSelectPeriPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::DataCommandPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::ResetPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
-            Self::BusyPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_INPT,
-            Self::PowerPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
+            Self::SerialClockPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::SerialDataPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::SerialSelectMainPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::SerialSelectPeriPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::DataCommandPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::ResetPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
+            Self::BusyPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_INPT
+            }
+            Self::PowerPin => {
+                crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP
+            }
         } as u8;
 
         debug!("FSEL on {:?} direction: {:?}", &self, direction);
@@ -71,7 +95,10 @@ impl GpioReadWrite for GpioPin {
         assert_ne!(*self, Self::BusyPin);
         let pin: u8 = (*self).into();
         let level_u8: u8 = level.into();
-        debug!("Writing to pin {} ({:?}), level: {} AKA {:?}", pin, &self, level_u8, level);
+        debug!(
+            "Writing to pin {} ({:?}), level: {} AKA {:?}",
+            pin, &self, level_u8, level
+        );
         /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
         /// For this specific display, only the BusyPin should fail to write, and that's handled in the above assertion.
         unsafe {
@@ -85,7 +112,7 @@ impl GpioReadWrite for GpioPin {
         assert_eq!(*self, Self::BusyPin);
         debug!("Reading from busy pin...");
         let pin = (*self).into();
-        let mut level_u8: u8 ;
+        let mut level_u8: u8;
         /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
         /// For this specific display, only the BusyPin should be able to read, and that's handled in the above assertion.
         unsafe {
@@ -96,15 +123,21 @@ impl GpioReadWrite for GpioPin {
 }
 
 impl EPaperDisplayBcmDriver {
-    pub fn new() -> Result<EPaperDisplayBcmDriver, EpdError> {
+    pub fn new() -> Self {
+        EPaperDisplayBcmDriver { initialized: false }
+    }
+    pub fn init(&mut self) -> Result<(), EpdError> {
         let init_status: c_int;
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
-            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_256 as u16); // we know this value is okay
+            bcm2835_spi_setClockDivider(
+                bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128 as u16,
+            ); // we know this value is okay
+            bcm2835_spi_setDataMode(bcm2835SPIMode_BCM2835_SPI_MODE0 as u8); // this value is okay too
         }
         if init_status == 0 {
-           return Err(EpdError::BcmInitError);
+            return Err(EpdError::BcmInitError);
         }
 
         GpioPin::set_all_modes();
@@ -124,14 +157,14 @@ impl EPaperDisplayBcmDriver {
         data_or_cmd_pin.write(Level::Low);
         reset_pin.write(Level::Low);
         power_pin.write(Level::High);
+        self.select_chip(SelectedChip::Neither);
 
-        let mut this = EPaperDisplayBcmDriver {};
         sleep(Duration::from_millis(500));
-        this.reset();
-        this.wait_for_not_busy();
+        self.reset();
+        self.wait_for_not_busy();
 
         let boot_sequence = [
-            (CommandCode::AnTm, SelectedChip::Both),
+            (CommandCode::AnTm, SelectedChip::Main),
             (CommandCode::Cmd66, SelectedChip::Both),
             (CommandCode::Psr, SelectedChip::Both),
             (CommandCode::Cdi, SelectedChip::Both),
@@ -149,13 +182,13 @@ impl EPaperDisplayBcmDriver {
             (CommandCode::TftVcomPower, SelectedChip::Main),
         ];
         for (command, chip) in boot_sequence {
-            this.send_command(command, chip);
+            self.send_command(command, chip);
         }
-
-        Ok(this)
+        self.initialized = true;
+        Ok(())
     }
 
-    // fn spi_write_byte(&mut self, byte: u8) {
+    // fn spi_write_byte(&self, byte: u8) {
     //     debug!("SPI write 1 byte");
     //     /// SAFETY: If SPI hasn't been set up correctly
     //     unsafe {
@@ -164,9 +197,12 @@ impl EPaperDisplayBcmDriver {
     // }
 
     #[allow(unused_mut)]
-    fn spi_write(&mut self, bytes: &[u8]) {
+    fn spi_write(&self, bytes: &[u8]) {
+        if !self.initialized {
+            panic!("Attempted to write to uninitialized SPI device");
+        }
         debug!("SPI write {} bytes", bytes.len());
-        for chunk in bytes.chunks(WIDTH/4) {
+        for chunk in bytes.chunks(WIDTH / 4) {
             let length = chunk.len();
             assert!(length < u32::MAX as usize);
 
@@ -183,18 +219,24 @@ impl EPaperDisplayBcmDriver {
         debug!("SPI write complete");
     }
 
-    fn select_chip(&mut self, new_selection: SelectedChip) {
-        GpioPin::SerialSelectMainPin
-            .write(if [SelectedChip::Main, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
-        GpioPin::SerialSelectPeriPin
-            .write(if [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
+    fn select_chip(&self, new_selection: SelectedChip) {
+        GpioPin::SerialSelectMainPin.write(
+            if [SelectedChip::Main, SelectedChip::Both].contains(&new_selection) {
+                Level::Low
+            } else {
+                Level::High
+            },
+        );
+        GpioPin::SerialSelectPeriPin.write(
+            if [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection) {
+                Level::Low
+            } else {
+                Level::High
+            },
+        );
     }
 
-    fn send_command(
-        &mut self,
-        command_code: CommandCode,
-        to_chip: SelectedChip,
-    ) {
+    fn send_command(&self, command_code: CommandCode, to_chip: SelectedChip) {
         self.select_chip(to_chip);
         let mut full_cmd = vec![command_code.cmd()];
 
@@ -216,7 +258,7 @@ impl EPaperDisplayBcmDriver {
         sleep(Duration::from_millis(20));
     }
 
-    fn turn_display_on(&mut self) {
+    fn turn_display_on(&self) {
         sleep(Duration::from_millis(20));
         info!("Write PON");
         self.send_command(CommandCode::PowerOn, SelectedChip::Both);
@@ -234,13 +276,19 @@ impl EPaperDisplayBcmDriver {
         info!("Display On");
     }
 
-    pub fn sleep_display(&mut self) {
+    pub fn sleep_display(&self) {
         self.send_command(CommandCode::DeepSleep, SelectedChip::Both);
         sleep(Duration::from_secs(2));
     }
 
-    fn reset(&mut self) {
-        for l in [Level::High, Level::Low, Level::High, Level::Low, Level::High] {
+    fn reset(&self) {
+        for l in [
+            Level::High,
+            Level::Low,
+            Level::High,
+            Level::Low,
+            Level::High,
+        ] {
             GpioPin::ResetPin.write(l);
             sleep(Duration::from_millis(30));
         }
@@ -248,24 +296,17 @@ impl EPaperDisplayBcmDriver {
 }
 
 impl EPaperDisplayBcmDriver {
-    pub fn clear_screen(&mut self) {
-        let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
-        self.select_chip(SelectedChip::Main);
-        self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(zeros);
-        self.select_chip(SelectedChip::Neither);
-        self.select_chip(SelectedChip::Peri);
-        self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(zeros);
-        self.select_chip(SelectedChip::Neither);
-        self.turn_display_on();
+    pub fn clear_screen(&self) {
+        let zeros: &[u8; DISPLAY_BYTES_TOTAL] = &[0u8; DISPLAY_BYTES_TOTAL];
+        self.send_image(zeros);
         sleep(Duration::from_millis(500));
     }
 
-    pub fn send_image(&mut self, image: &[u8]) {
-        assert_eq!(image.len(), HEIGHT * WIDTH / 2);
+    pub fn send_image(&self, image: &[u8]) {
+        assert_eq!(image.len(), DISPLAY_BYTES_TOTAL);
         let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
         let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
+        // rearrange the packed bytes for the top and bottom halves
         for (k, v) in image.iter().enumerate() {
             let column = k % WIDTH;
             let row = k / WIDTH;
@@ -284,6 +325,7 @@ impl EPaperDisplayBcmDriver {
         self.spi_write(&[CommandCode::Dtm.cmd()]);
         self.spi_write(bottom.as_ref());
         self.select_chip(SelectedChip::Neither);
+        sleep(Duration::from_millis(100));
         self.turn_display_on();
     }
 }

@@ -25,7 +25,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let sleep_secs = 20;
 
     info!("File loaded. Init driver.");
-    let mut device = Driver::new()?;
+    let mut device = Driver::new();
+    device.init();
     info!("Device init. Clearing display");
     device.clear_screen();
     info!("Cleared. Sending image...");
