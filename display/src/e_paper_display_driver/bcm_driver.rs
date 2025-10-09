@@ -197,11 +197,11 @@ impl EPaperDisplayBcmDriver {
     ) {
         self.select_chip(to_chip);
         let mut full_cmd = vec![command_code.cmd()];
-        debug!("Sending command: {:?} {:02X?}", &command_code, &full_cmd);
 
         if let Some(data) = command_code.data() {
             full_cmd.extend_from_slice(data);
         }
+        debug!("Sending command: {:?} {:#02x?}", &command_code, &full_cmd);
         self.spi_write(full_cmd.as_slice());
         self.select_chip(SelectedChip::Neither);
         sleep(Duration::from_millis(10));
