@@ -183,21 +183,10 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn select_chip(&mut self, new_selection: SelectedChip) {
-        if new_selection == self.selected_chip {
-            return;
-        }
-        let main_selected = [SelectedChip::Main, SelectedChip::Both].contains(&self.selected_chip);
-        let select_main = [SelectedChip::Main, SelectedChip::Both].contains(&new_selection);
-        let peri_selected = [SelectedChip::Peri, SelectedChip::Both].contains(&self.selected_chip);
-        let select_peri = [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection);
-        if main_selected != select_main {
-            GpioPin::SerialSelectMainPin
-                .write(if select_main { Level::Low } else { Level::High });
-        }
-        if peri_selected != select_peri {
-            GpioPin::SerialSelectPeriPin
-                .write(if select_peri { Level::Low } else { Level::High });
-        }
+        GpioPin::SerialSelectMainPin
+            .write(if [SelectedChip::Main, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
+        GpioPin::SerialSelectPeriPin
+            .write(if [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
         self.selected_chip = new_selection;
     }
 
