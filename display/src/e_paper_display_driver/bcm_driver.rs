@@ -1,5 +1,5 @@
 use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb};
+use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb, bcm2835_spi_setClockDivider, bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
@@ -102,6 +102,7 @@ impl EPaperDisplayBcmDriver {
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
+            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64);
         }
         if init_status == 0 {
            return Err(EpdError::BcmInitError);
@@ -166,7 +167,7 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn spi_write(&mut self, bytes: &[u8]) {
-        let chunk_size = 600;
+        let chunk_size = WIDTH; // 4 rows at a time?
         for chunk in bytes.chunks(chunk_size) {
             let length = chunk.len();
             debug!("SPI write {} bytes", length);
