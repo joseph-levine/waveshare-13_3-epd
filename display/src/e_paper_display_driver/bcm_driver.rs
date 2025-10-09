@@ -79,6 +79,7 @@ impl GpioReadWrite for GpioPin {
         }
     }
 
+    #[allow(unused_mut)]
     fn read(&self) -> Level {
         // the display only supports reading from the busy pin
         assert_eq!(*self, Self::BusyPin);
@@ -154,20 +155,20 @@ impl EPaperDisplayBcmDriver {
         Ok(this)
     }
 
-    fn spi_write_byte(&mut self, byte: u8) {
-        debug!("SPI write 1 byte");
-        /// SAFETY: If SPI hasn't been set up correctly
-        unsafe {
-            bcm2835_spi_transfer(byte);
-        }
-    }
+    // fn spi_write_byte(&mut self, byte: u8) {
+    //     debug!("SPI write 1 byte");
+    //     /// SAFETY: If SPI hasn't been set up correctly
+    //     unsafe {
+    //         bcm2835_spi_transfer(byte);
+    //     }
+    // }
 
     #[allow(unused_mut)]
     fn spi_write(&mut self, bytes: &[u8]) {
+        debug!("SPI write {} bytes", bytes.len());
         for chunk in bytes.chunks(WIDTH/4) {
             let length = chunk.len();
             assert!(length < u32::MAX as usize);
-            debug!("SPI write {} bytes", length);
 
             let mut v_bytes = Vec::from(chunk);
             let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
@@ -179,6 +180,7 @@ impl EPaperDisplayBcmDriver {
                 bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
             }
         }
+        debug!("SPI write complete");
     }
 
     fn select_chip(&mut self, new_selection: SelectedChip) {
@@ -195,6 +197,8 @@ impl EPaperDisplayBcmDriver {
     ) {
         self.select_chip(to_chip);
         let mut full_cmd = vec![command_code.cmd()];
+        debug!("Sending command: {:?} {:02X?}", &command_code, &full_cmd);
+
         if let Some(data) = command_code.data() {
             full_cmd.extend_from_slice(data);
         }
