@@ -93,10 +93,10 @@ impl GpioReadWrite for GpioPin {
         assert_ne!(*self, Self::BusyPin);
         let pin: u8 = (*self).into();
         let level_u8: u8 = level.into();
-        debug!(
-            "Writing to pin {} ({:?}), level: {} AKA {:?}",
-            pin, &self, level_u8, level
-        );
+        // debug!(
+        //     "Writing to pin {} ({:?}), level: {} AKA {:?}",
+        //     pin, &self, level_u8, level
+        // );
         /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
         /// For this specific display, only the BusyPin should fail to write, and that's handled in the above assertion.
         unsafe {
