@@ -213,10 +213,12 @@ impl EPaperDisplayBcmDriver {
         }
         self.spi_write(full_cmd.as_slice());
         self.select_chip(SelectedChip::Neither);
+        sleep(Duration::from_millis(10));
     }
 
     fn wait_for_not_busy(&self) {
         info!("waiting for not busy");
+        sleep(Duration::from_millis(20));
         while GpioPin::BusyPin.read() == Level::Low {
             sleep(Duration::from_millis(10));
         }
@@ -224,6 +226,7 @@ impl EPaperDisplayBcmDriver {
     }
 
     fn turn_display_on(&mut self) {
+        sleep(Duration::from_millis(20));
         info!("Write PON");
         self.send_command(CommandCode::PowerOn, SelectedChip::Both);
         self.wait_for_not_busy();
