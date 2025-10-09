@@ -26,9 +26,7 @@ enum SelectedChip {
 }
 
 #[derive(Debug)]
-pub struct EPaperDisplayBcmDriver {
-    selected_chip: SelectedChip,
-}
+pub struct EPaperDisplayBcmDriver ;
 
 impl GpioReadWrite for GpioPin {
     fn set_all_modes() {
@@ -166,19 +164,22 @@ impl EPaperDisplayBcmDriver {
         }
     }
 
+    #[allow(unused_mut)]
     fn spi_write(&mut self, bytes: &[u8]) {
-        let length = bytes.len();
-        assert!(length < u32::MAX as usize);
-        debug!("SPI write {} bytes", length);
+        for chunk in bytes.chunks(WIDTH/4) {
+            let length = chunk.len();
+            assert!(length < u32::MAX as usize);
+            debug!("SPI write {} bytes", length);
 
-        let mut v_bytes = Vec::from(bytes);
-        let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
-        let mut received = Vec::with_capacity(length);
-        let mut c_received_chars = received.as_mut_ptr() as *mut c_char;
+            let mut v_bytes = Vec::from(chunk);
+            let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
+            let mut received = Vec::with_capacity(length);
+            let mut c_received_chars = received.as_mut_ptr() as *mut c_char;
 
-        /// SAFETY: If SPI hasn't been set up correctly
-        unsafe {
-            bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
+            /// SAFETY: If SPI hasn't been set up correctly
+            unsafe {
+                bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
+            }
         }
     }
 
@@ -187,15 +188,14 @@ impl EPaperDisplayBcmDriver {
             .write(if [SelectedChip::Main, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
         GpioPin::SerialSelectPeriPin
             .write(if [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection) { Level::Low } else { Level::High });
-        self.selected_chip = new_selection;
     }
 
     fn send_command(
         &mut self,
         command_code: CommandCode,
-        selected_chip: SelectedChip,
+        to_chip: SelectedChip,
     ) {
-        self.select_chip(selected_chip);
+        self.select_chip(to_chip);
         let mut full_cmd = vec![command_code.cmd()];
         if let Some(data) = command_code.data() {
             full_cmd.extend_from_slice(data);
