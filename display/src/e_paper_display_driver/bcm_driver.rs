@@ -168,17 +168,17 @@ impl EPaperDisplayBcmDriver {
     fn spi_write(&mut self, bytes: &[u8]) {
         let chunk_size = 600;
         for chunk in bytes.chunks(chunk_size) {
-            debug!("SPI write {} bytes", length);
             let length = bytes.len();
+            debug!("SPI write {} bytes", length);
             let mut v_bytes = Vec::from(chunk);
             let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
             let mut received = Vec::with_capacity(length);
             let mut c_received_chars = received.as_mut_ptr() as *mut c_char;
             /// SAFETY: If SPI hasn't been set up correctly
             unsafe {
-                if (libc::geteuid() != 0) {
-                    panic!("Only root may send data over SPI without a spidev");
-                }
+                // if (libc::geteuid() != 0) {
+                //     panic!("Only root may send data over SPI without a spidev");
+                // }
                 bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
             }
         }
