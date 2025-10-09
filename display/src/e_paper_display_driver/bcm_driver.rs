@@ -131,7 +131,7 @@ impl EPaperDisplayBcmDriver {
         this.wait_for_not_busy();
 
         let boot_sequence = [
-            (CommandCode::AnTm, SelectedChip::Main),
+            (CommandCode::AnTm, SelectedChip::Both),
             (CommandCode::Cmd66, SelectedChip::Both),
             (CommandCode::Psr, SelectedChip::Both),
             (CommandCode::Cdi, SelectedChip::Both),
