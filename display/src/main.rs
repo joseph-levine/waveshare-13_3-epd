@@ -25,18 +25,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let sleep_secs = 20;
 
     info!("File loaded. Init driver.");
-    let mut device = Driver::new();
-    device.init()?;
+    let mut device = Driver {};
+    device.init();
     info!("Device init. Clearing display");
-    device.clear_screen();
+    device.clear();
     info!("Cleared. Sending image...");
-    device.send_image(&epd_image);
+    device.display(&epd_image);
     info!("Image sent. Sleeping display...");
-    device.sleep_display();
+    device.sleep();
     info!("Display asleep. Waiting {}s", sleep_secs);
     sleep(Duration::from_secs(sleep_secs));
     info!("Clearing screen");
-    device.clear_screen();
+    device.sleep();
     info!("Screen clear. Waiting 2s...");
     sleep(Duration::from_secs(2));
     info!("Dropping device...");

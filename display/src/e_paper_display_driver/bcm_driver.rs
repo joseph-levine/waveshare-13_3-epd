@@ -277,17 +277,17 @@ impl EPaperDisplayBcmDriver {
             DEV_Digital_Write(EPD_CS_M_PIN, 0);
         }
         self.send_command(0x10);
-        self.spi_write(top.as_ref());
+        self.send_data2(top.as_ref());
         self.cs_all(1);
         unsafe {
             DEV_Digital_Write(EPD_CS_S_PIN, 0);
         }
-        self.spi_write(&[CommandCode::Dtm.cmd()]);
+        self.send_command(0x10);
         self.spi_write(bottom.as_ref());
         self.cs_all(1);
         sleep(Duration::from_millis(100));
 
-        self.turn_display_on();
+        self.turn_on_display();
     }
     pub fn sleep(&self) {
         self.cs_all(0);
