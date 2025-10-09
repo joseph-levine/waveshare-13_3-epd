@@ -206,11 +206,11 @@ impl EPaperDisplayBcmDriver {
         for byte in bytes {
             let mut b = byte.clone();
             for _i in 0..8 {
-                clock_pin.write(Low);
+                clock_pin.write(Level::Low);
                 data_pin
-                    .write(if b & 0x80 == 0x0 { Low } else { High });
+                    .write(if b & 0x80 == 0x0 { Level::Low } else { Level::High });
                 b = b << 1;
-                clock_pin.write(High);
+                clock_pin.write(Level::High);
             }
         }
         sleep(Duration::from_millis(5));
