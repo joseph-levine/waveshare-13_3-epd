@@ -12,8 +12,8 @@ use crate::display_constants::{
 // };
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 use crate::e_paper_display_driver::waveshare::{
-    DEV_Digital_Read, DEV_Digital_Write, DEV_ModuleExit, DEV_ModuleInit, DEV_SPI_send_data,
-    DEV_SPI_send_data_nByte,
+    DEV_Digital_Read, DEV_Digital_Write, DEV_ModuleExit, DEV_ModuleInit, DEV_SPI_SendData,
+    DEV_SPI_SendData_nByte,
 };
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
@@ -24,16 +24,16 @@ use std::time::Duration;
 use thiserror::Error;
 use tracing::{debug, info};
 
-static EPD_SCK_PIN: u8 = 11;
-static EPD_MOSI_PIN: u8 = 10;
+static EPD_SCK_PIN: u16 = 11;
+static EPD_MOSI_PIN: u16 = 10;
 
-static EPD_CS_M_PIN: u8 = 8;
-static EPD_CS_S_PIN: u8 = 7;
+static EPD_CS_M_PIN: u16 = 8;
+static EPD_CS_S_PIN: u16 = 7;
 
-static EPD_DC_PIN: u8 = 25;
-static EPD_RST_PIN: u8 = 17;
-static EPD_BUSY_PIN: u8 = 24;
-static EPD_PWR_PIN: u8 = 18;
+static EPD_DC_PIN: u16 = 25;
+static EPD_RST_PIN: u16 = 17;
+static EPD_BUSY_PIN: u16 = 24;
+static EPD_PWR_PIN: u16 = 18;
 //
 // #[derive(Debug, Error)]
 // pub enum EpdError {
@@ -56,34 +56,47 @@ pub struct EPaperDisplayBcmDriver {}
 
 impl EPaperDisplayBcmDriver {
     pub fn reset(&self) {
-        DEV_Digital_Write(EPD_RST_PIN, 1);
-        sleep(Duration::from_millis(3));
-        DEV_Digital_Write(EPD_RST_PIN, 0);
-        sleep(Duration::from_millis(3));
-        DEV_Digital_Write(EPD_RST_PIN, 1);
-        sleep(Duration::from_millis(3));
-        DEV_Digital_Write(EPD_RST_PIN, 0);
-        sleep(Duration::from_millis(3));
-        DEV_Digital_Write(EPD_RST_PIN, 1);
-        sleep(Duration::from_millis(3));
+        unsafe {
+            DEV_Digital_Write(EPD_RST_PIN, 1);
+            sleep(Duration::from_millis(3));
+            DEV_Digital_Write(EPD_RST_PIN, 0);
+            sleep(Duration::from_millis(3));
+            DEV_Digital_Write(EPD_RST_PIN, 1);
+            sleep(Duration::from_millis(3));
+            DEV_Digital_Write(EPD_RST_PIN, 0);
+            sleep(Duration::from_millis(3));
+            DEV_Digital_Write(EPD_RST_PIN, 1);
+            sleep(Duration::from_millis(3));
+        }
     }
     pub fn cs_all(&self, value: u8) {
-        DEV_Digital_Write(EPD_CS_M_PIN, value);
-        DEV_Digital_Write(EPD_CS_S_PIN, value);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, value);
+            DEV_Digital_Write(EPD_CS_S_PIN, value);
+        }
     }
     pub fn send_command(&self, command: u8) {
-        DEV_SPI_send_data(command);
+        unsafe {
+            DEV_SPI_SendData(command);
+        }
     }
     pub fn send_data(&self, data: u8) {
-        DEV_SPI_send_data(data);
+        unsafe {
+            DEV_SPI_SendData(data);
+        }
     }
     pub fn send_data2(&self, data: &[u8]) {
-        DEV_SPI_send_data_nByte(data, data.len());
+        let c_data = data.as_ptr();
+        unsafe {
+            DEV_SPI_SendData_nByte(c_data, data.len() as u32);
+        }
     }
     pub fn read_busy_h(&self) {
         info!("e-Paper busy H");
-        while(DEV_Digital_Read(EPD_BUSY_PIN) == 0) { //:      # 0: busy, 1: idle
-            sleep(Duration::from_millis(5));
+        unsafe {
+            while DEV_Digital_Read(EPD_BUSY_PIN) == 0 { //:      # 0: busy, 1: idle
+                sleep(Duration::from_millis(5));
+            }
         }
         info!("e-Paper busy H release");
     }
@@ -111,13 +124,17 @@ impl EPaperDisplayBcmDriver {
         info!("Display Done!!");
     }
     pub fn init(&self) {
-        info("EPD init...");
-        DEV_ModuleInit();
+        info!("EPD init...");
+        unsafe {
+            DEV_ModuleInit();
+        }
 
         self.reset();
         self.read_busy_h();
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0x74);
         self.send_data(0xC0);
         self.send_data(0x1C);
@@ -180,7 +197,9 @@ impl EPaperDisplayBcmDriver {
         self.send_data(0x20);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0x01);
         self.send_data(0x0F);
         self.send_data(0x00);
@@ -190,34 +209,46 @@ impl EPaperDisplayBcmDriver {
         self.send_data(0x38);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0xB6);
         self.send_data(0x07);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0x06);
         self.send_data(0xE8);
         self.send_data(0x28);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0xB7);
         self.send_data(0x01);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0x05);
         self.send_data(0xE8);
         self.send_data(0x28);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0xB0);
         self.send_data(0x01);
         self.cs_all(1);
 
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0xB1);
         self.send_data(0x02);
         self.cs_all(1);
@@ -242,11 +273,15 @@ impl EPaperDisplayBcmDriver {
                 bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
             }
         }
-        DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_M_PIN, 0);
+        }
         self.send_command(0x10);
         self.spi_write(top.as_ref());
         self.cs_all(1);
-        DEV_Digital_Write(EPD_CS_S_PIN, 0);
+        unsafe {
+            DEV_Digital_Write(EPD_CS_S_PIN, 0);
+        }
         self.spi_write(&[CommandCode::Dtm.cmd()]);
         self.spi_write(bottom.as_ref());
         self.cs_all(1);
@@ -261,6 +296,8 @@ impl EPaperDisplayBcmDriver {
         self.cs_all(1);
 
         sleep(Duration::from_millis(2000));
-        DEV_ModuleExit();
+        unsafe {
+            DEV_ModuleExit();
+        }
     }
 }
