@@ -1,7 +1,6 @@
 mod display_constants;
 mod e_paper_display_driver;
 
-use std::env::args;
 use clap::Parser;
 use e_paper_display_driver::bcm_driver::EPaperDisplayBcmDriver as Driver;
 use std::error::Error;
@@ -23,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Reading file...");
     let epd_image = fs::read(&args.file)?;
 
-    let sleep_secs = 10;
+    let sleep_secs = 20;
 
     info!("File loaded. Init driver.");
     let mut device = Driver::new()?;

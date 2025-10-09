@@ -1,5 +1,5 @@
 use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb, bcm2835_spi_setClockDivider, bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64};
+use crate::e_paper_display_driver::bcm2835::{bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init, bcm2835_spi_transfer, bcm2835_spi_transfernb, bcm2835_spi_setClockDivider, bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_256};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
@@ -102,7 +102,7 @@ impl EPaperDisplayBcmDriver {
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
-            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64 as u16); // we know this value is okay
+            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_256 as u16); // we know this value is okay
         }
         if init_status == 0 {
            return Err(EpdError::BcmInitError);
@@ -265,6 +265,7 @@ impl EPaperDisplayBcmDriver {
         self.spi_write(zeros);
         self.select_chip(SelectedChip::Neither);
         self.turn_display_on();
+        sleep(Duration::from_millis(500));
     }
 
     pub fn send_image(&mut self, image: &[u8]) {
