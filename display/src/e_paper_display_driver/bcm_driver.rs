@@ -124,9 +124,7 @@ impl EPaperDisplayBcmDriver {
         reset_pin.write(Level::Low);
         power_pin.write(Level::High);
 
-        let mut this = EPaperDisplayBcmDriver {
-            selected_chip: SelectedChip::Both,
-        };
+        let mut this = EPaperDisplayBcmDriver {};
         sleep(Duration::from_millis(500));
         this.reset();
         this.wait_for_not_busy();
