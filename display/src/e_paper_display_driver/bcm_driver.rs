@@ -58,7 +58,7 @@ impl GpioReadWrite for GpioPin {
             Self::PowerPin => crate::e_paper_display_driver::bcm2835::bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP,
         } as u8;
 
-        debug!("FSEL on {:?}", &self);
+        debug!("FSEL on {:?} direction: {:?}", &self, direction);
 
         /// SAFETY: all these specific cases should be safe
         unsafe {
@@ -71,7 +71,7 @@ impl GpioReadWrite for GpioPin {
         assert_ne!(*self, Self::BusyPin);
         let pin: u8 = (*self).into();
         let level_u8: u8 = level.into();
-        debug!("Writing to pin {}, level: {} AKA {:?}", pin, level_u8, level);
+        debug!("Writing to pin {} ({:?}), level: {} AKA {:?}", pin, &self, level_u8, level);
         /// SAFETY: if the pin hasn't been initialized this will probably be undefined behavior.
         /// For this specific display, only the BusyPin should fail to write, and that's handled in the above assertion.
         unsafe {
@@ -201,7 +201,7 @@ impl EPaperDisplayBcmDriver {
         if let Some(data) = command_code.data() {
             full_cmd.extend_from_slice(data);
         }
-        debug!("Sending command: {:?} {:#02x?}", &command_code, &full_cmd);
+        debug!("Sending command: {:?} {:#02X?}", &command_code, &full_cmd);
         self.spi_write(full_cmd.as_slice());
         self.select_chip(SelectedChip::Neither);
         sleep(Duration::from_millis(10));
