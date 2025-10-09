@@ -25,8 +25,7 @@ fn main() {
     // automatically know it must look for a `libbcm2835.a` file.
     println!("cargo:rustc-link-lib=bcm2835");
 
-    println!("cargo::rerun-if-changed=src/bcm2835.c");
-    println!("cargo::rerun-if-changed=src/bcm2835.h");
+    println!("cargo::rerun-if-env-changed=BCM2835_BUILD");
 
     // Run `clang` to compile the `bcm2835.c` file into a `bcm2835.o` object file.
     // Unwrap if it is not possible to spawn the process.
