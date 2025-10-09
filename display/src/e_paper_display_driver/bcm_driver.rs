@@ -163,6 +163,8 @@ impl EPaperDisplayBcmDriver {
         self.reset();
         self.wait_for_not_busy();
 
+        self.initialized = true;
+
         let boot_sequence = [
             (CommandCode::AnTm, SelectedChip::Main),
             (CommandCode::Cmd66, SelectedChip::Both),
@@ -184,7 +186,6 @@ impl EPaperDisplayBcmDriver {
         for (command, chip) in boot_sequence {
             self.send_command(command, chip);
         }
-        self.initialized = true;
         Ok(())
     }
 
