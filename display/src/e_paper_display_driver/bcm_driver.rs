@@ -5,7 +5,7 @@ use std::cmp::PartialEq;
 use std::io::Error as IoError;
 use std::os::raw::{c_char, c_int};
 use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use thiserror::Error;
 use tracing::{debug, info};
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
@@ -102,7 +102,7 @@ impl EPaperDisplayBcmDriver {
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
-            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64);
+            bcm2835_spi_setClockDivider(bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_64 as u16); // we know this value is okay
         }
         if init_status == 0 {
            return Err(EpdError::BcmInitError);

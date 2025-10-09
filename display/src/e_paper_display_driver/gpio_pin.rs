@@ -1,9 +1,3 @@
-use crate::e_paper_display_driver::bcm2835::{
-    bcm2835FunctionSelect_BCM2835_GPIO_FSEL_INPT as FSEL_INPUT,
-    bcm2835FunctionSelect_BCM2835_GPIO_FSEL_OUTP as FSEL_OUTPUT, bcm2835_gpio_fsel,
-    bcm2835_gpio_lev, bcm2835_gpio_write,
-};
-
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 #[repr(u8)]
 pub enum Level {
