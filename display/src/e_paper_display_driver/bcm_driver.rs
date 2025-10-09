@@ -255,7 +255,7 @@ impl EPaperDisplayBcmDriver {
     }
     pub fn clear(&self) {
         let zeros: &[u8; DISPLAY_BYTES_TOTAL] = &[0u8; DISPLAY_BYTES_TOTAL];
-        self.send_image(zeros);
+        self.display(zeros);
         sleep(Duration::from_millis(500));
     }
     pub fn display(&self, image: &[u8]) {
@@ -283,7 +283,7 @@ impl EPaperDisplayBcmDriver {
             DEV_Digital_Write(EPD_CS_S_PIN, 0);
         }
         self.send_command(0x10);
-        self.spi_write(bottom.as_ref());
+        self.send_data2(bottom.as_ref());
         self.cs_all(1);
         sleep(Duration::from_millis(100));
 
