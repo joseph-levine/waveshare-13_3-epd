@@ -1,9 +1,9 @@
 use crate::display_constants::{DISPLAY_BYTES_TOTAL, DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
 use crate::e_paper_display_driver::bcm2835::{
-    bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128, bcm2835SPIMode_BCM2835_SPI_MODE0,
+    // bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128, bcm2835SPIMode_BCM2835_SPI_MODE0,
     bcm2835_gpio_fsel, bcm2835_gpio_lev, bcm2835_gpio_write, bcm2835_init,
-    bcm2835_spi_setClockDivider, bcm2835_spi_setDataMode, bcm2835_spi_transfer,
-    bcm2835_spi_transfernb,
+    // bcm2835_spi_setClockDivider, bcm2835_spi_setDataMode, bcm2835_spi_transfer,
+    // bcm2835_spi_transfernb,
 };
 use crate::e_paper_display_driver::gpio_pin::{GpioReadWrite, Level};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
@@ -32,9 +32,7 @@ enum SelectedChip {
 }
 
 #[derive(Debug)]
-pub struct EPaperDisplayBcmDriver {
-    initialized: bool,
-}
+pub struct EPaperDisplayBcmDriver {}
 
 impl GpioReadWrite for GpioPin {
     fn set_all_modes() {
@@ -124,17 +122,17 @@ impl GpioReadWrite for GpioPin {
 
 impl EPaperDisplayBcmDriver {
     pub fn new() -> Self {
-        EPaperDisplayBcmDriver { initialized: false }
+        EPaperDisplayBcmDriver { }
     }
     pub fn init(&mut self) -> Result<(), EpdError> {
         let init_status: c_int;
         /// Safety: Should return status instead of crashing...
         unsafe {
             init_status = bcm2835_init();
-            bcm2835_spi_setClockDivider(
-                bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128 as u16,
-            ); // we know this value is okay
-            bcm2835_spi_setDataMode(bcm2835SPIMode_BCM2835_SPI_MODE0 as u8); // this value is okay too
+            // bcm2835_spi_setClockDivider(
+            //     bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128 as u16,
+            // ); // we know this value is okay
+            // bcm2835_spi_setDataMode(bcm2835SPIMode_BCM2835_SPI_MODE0 as u8); // this value is okay too
         }
         if init_status == 0 {
             return Err(EpdError::BcmInitError);
@@ -162,8 +160,6 @@ impl EPaperDisplayBcmDriver {
         sleep(Duration::from_millis(500));
         self.reset();
         self.wait_for_not_busy();
-
-        self.initialized = true;
 
         let boot_sequence = [
             (CommandCode::AnTm, SelectedChip::Main),
@@ -199,25 +195,25 @@ impl EPaperDisplayBcmDriver {
 
     #[allow(unused_mut)]
     fn spi_write(&self, bytes: &[u8]) {
-        if !self.initialized {
-            panic!("Attempted to write to uninitialized SPI device");
+        if bytes.len() > 32 {
+            debug!("Spi write to {} bytes", bytes.len());
+        } else {
+            debug!("Spi write {:02X?}", bytes);
         }
-        debug!("SPI write {} bytes", bytes.len());
-        for chunk in bytes.chunks(WIDTH / 4) {
-            let length = chunk.len();
-            assert!(length < u32::MAX as usize);
+        let clock_pin = GpioPin::SerialClockPin;
+        let data_pin = GpioPin::SerialDataPin;
 
-            let mut v_bytes = Vec::from(chunk);
-            let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
-            let mut received = Vec::with_capacity(length);
-            let mut c_received_chars = received.as_mut_ptr() as *mut c_char;
-
-            /// SAFETY: If SPI hasn't been set up correctly
-            unsafe {
-                bcm2835_spi_transfernb(c_send_chars, c_received_chars, length as u32);
+        for byte in bytes {
+            let mut b = byte.clone();
+            for _i in 0..8 {
+                clock_pin.write(Low);
+                data_pin
+                    .write(if b & 0x80 == 0x0 { Low } else { High });
+                b = b << 1;
+                clock_pin.write(High);
             }
         }
-        debug!("SPI write complete");
+        sleep(Duration::from_millis(5));
     }
 
     fn select_chip(&self, new_selection: SelectedChip) {
@@ -244,7 +240,6 @@ impl EPaperDisplayBcmDriver {
         if let Some(data) = command_code.data() {
             full_cmd.extend_from_slice(data);
         }
-        debug!("Sending command: {:?} {:#02X?}", &command_code, &full_cmd);
         self.spi_write(full_cmd.as_slice());
         self.select_chip(SelectedChip::Neither);
         sleep(Duration::from_millis(10));
