@@ -168,7 +168,7 @@ impl EPaperDisplayBcmDriver {
     fn spi_write(&mut self, bytes: &[u8]) {
         let chunk_size = 600;
         for chunk in bytes.chunks(chunk_size) {
-            let length = bytes.len();
+            let length = chunk.len();
             debug!("SPI write {} bytes", length);
             let mut v_bytes = Vec::from(chunk);
             let mut c_send_chars = v_bytes.as_ptr() as *mut c_char;
