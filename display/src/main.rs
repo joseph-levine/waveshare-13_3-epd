@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     info!("File loaded. Init driver.");
     let mut device = Driver::new();
-    device.init();
+    device.init()?;
     info!("Device init. Clearing display");
     device.clear_screen();
     info!("Cleared. Sending image...");
