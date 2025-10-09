@@ -129,7 +129,7 @@ impl EPaperDisplayBcmDriver {
         let mut this = EPaperDisplayBcmDriver {
             selected_chip: SelectedChip::Both,
         };
-
+        sleep(Duration::from_millis(500));
         this.reset();
         this.wait_for_not_busy();
 
