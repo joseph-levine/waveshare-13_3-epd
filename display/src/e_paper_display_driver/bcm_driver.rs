@@ -1,6 +1,4 @@
-use crate::display_constants::{
-    DISPLAY_BYTES_PER_CHIP, DISPLAY_BYTES_TOTAL, HALF_WIDTH, HEIGHT, WIDTH,
-};
+use crate::display_constants::{EPD_BYTES_TOTAL, EPD_BYTE_WIDTH_PER_CHIP, EPD_PIXEL_HEIGHT, EPD_TOTAL_BYTES_PER_CHIP};
 // use crate::e_paper_display_driver::bcm2835::{
 //     // bcm2835SPIClockDivider_BCM2835_SPI_CLOCK_DIVIDER_128, bcm2835SPIMode_BCM2835_SPI_MODE0,
 //     bcm2835_gpio_fsel,
@@ -254,36 +252,37 @@ impl EPaperDisplayBcmDriver {
         self.cs_all(1);
     }
     pub fn clear(&self) {
-        let zeros: &[u8; DISPLAY_BYTES_TOTAL] = &[0u8; DISPLAY_BYTES_TOTAL];
+        let zeros: &[u8; EPD_BYTES_TOTAL] = &[0u8; EPD_BYTES_TOTAL];
         self.display(zeros);
         sleep(Duration::from_millis(500));
     }
     pub fn display(&self, image: &[u8]) {
 
-        assert_eq!(image.len(), DISPLAY_BYTES_TOTAL);
-        let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
-        let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
+        assert_eq!(image.len(), EPD_BYTES_TOTAL);
+        let mut top: [[u8; EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT] = [[0;EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT];
+        let mut bottom: [[u8; EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT] = [[0;EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT];
         // rearrange the packed bytes for the top and bottom halves
-        for (k, v) in image.iter().enumerate() {
-            let column = k % WIDTH;
-            let row = k / WIDTH;
-            if column < HALF_WIDTH {
-                top[row * HALF_WIDTH + column] = *v;
-            } else {
-                bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
+        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
+            let row = i / 2;
+            if i % 1 == 0 {
+                top[row] = chunk.into();
             }
         }
         unsafe {
             DEV_Digital_Write(EPD_CS_M_PIN, 0);
         }
         self.send_command(0x10);
-        self.send_data2(top.as_ref());
+        for chunk in top {
+            self.send_data2(chunk.as_ref());
+        }
         self.cs_all(1);
         unsafe {
             DEV_Digital_Write(EPD_CS_S_PIN, 0);
         }
         self.send_command(0x10);
-        self.send_data2(bottom.as_ref());
+        for chunk in bottom {
+            self.send_data2(chunk.as_ref());
+        }
         self.cs_all(1);
         sleep(Duration::from_millis(100));
 
