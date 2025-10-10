@@ -259,29 +259,24 @@ impl EPaperDisplayBcmDriver {
     pub fn display(&self, image: &[u8]) {
 
         assert_eq!(image.len(), EPD_BYTES_TOTAL);
-        let mut top: [[u8; EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT] = [[0;EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT];
-        let mut bottom: [[u8; EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT] = [[0;EPD_BYTE_WIDTH_PER_CHIP]; EPD_PIXEL_HEIGHT];
-        // rearrange the packed bytes for the top and bottom halves
-        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
-            let row = i / 2;
-            if i % 1 == 0 {
-                top[row] = chunk.into();
-            }
-        }
         unsafe {
             DEV_Digital_Write(EPD_CS_M_PIN, 0);
         }
         self.send_command(0x10);
-        for chunk in top {
-            self.send_data2(chunk.as_ref());
+        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
+            if i % 2 == 0 {
+                self.send_data2(chunk);
+            }
         }
         self.cs_all(1);
         unsafe {
             DEV_Digital_Write(EPD_CS_S_PIN, 0);
         }
         self.send_command(0x10);
-        for chunk in bottom {
-            self.send_data2(chunk.as_ref());
+        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
+            if i % 2 == 1 {
+                self.send_data2(chunk);
+            }
         }
         self.cs_all(1);
         sleep(Duration::from_millis(100));
