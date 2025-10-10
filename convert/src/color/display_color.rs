@@ -89,3 +89,16 @@ impl From<usize> for DisplayColor {
         }
     }
 }
+
+impl From<DisplayColor> for u8 {
+    fn from(value: DisplayColor) -> Self {
+        match value {
+            DisplayColor::Black => 0,
+            DisplayColor::White => 1,
+            DisplayColor::Yellow => 2,
+            DisplayColor::Red => 3,
+            DisplayColor::Blue => 4,
+            DisplayColor::Green => 5,
+        }
+    }
+}

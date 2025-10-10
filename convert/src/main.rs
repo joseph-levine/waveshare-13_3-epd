@@ -12,7 +12,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use tracing::info;
-use crate::display_constants::{HEIGHT, WIDTH};
+use tracing::level_filters::LevelFilter;
+use crate::display_constants::{PIXEL_HEIGHT, PIXEL_WIDTH};
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -23,12 +24,12 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_max_level(LevelFilter::DEBUG).init();
     let args = Args::parse();
 
     let img = image::open(&args.file)?;
     info!("Opened image {}", &args.file.display());
-    let img = img.resize_to_fill(WIDTH as u32, HEIGHT as u32, FilterType::Lanczos3);
+    let img = img.resize_to_fill(PIXEL_WIDTH, PIXEL_HEIGHT, FilterType::Lanczos3);
     info!("Resized");
     let img = img.rotate270();
     info!("Rotated");
