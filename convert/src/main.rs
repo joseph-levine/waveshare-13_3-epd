@@ -19,7 +19,6 @@ use crate::display_constants::{PIXEL_HEIGHT, PIXEL_WIDTH};
 struct Args {
     file: PathBuf,
     out_file: PathBuf,
-    #[clap(long)]
     dithered_file: Option<PathBuf>,
 }
 
@@ -29,10 +28,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let img = image::open(&args.file)?;
     info!("Opened image {}", &args.file.display());
-    let img = img.resize_to_fill(PIXEL_WIDTH, PIXEL_HEIGHT, FilterType::Lanczos3);
-    info!("Resized");
     let img = img.rotate270();
     info!("Rotated");
+    let img = img.resize_to_fill(PIXEL_WIDTH, PIXEL_HEIGHT, FilterType::Lanczos3);
+    info!("Resized");
     let mut img = img.into_rgb8();
     info!("To rgb 8 bit");
 

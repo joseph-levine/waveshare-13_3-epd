@@ -18,10 +18,10 @@ impl DisplayColor {
         HashMap::from([
             (DisplayColor::Black, Rgb::from([0, 0, 0])),
             (DisplayColor::White, Rgb::from([255, 255, 255])),
-            (DisplayColor::Yellow, Rgb::from([255, 243, 56])),
-            (DisplayColor::Red, Rgb::from([191, 0, 0])),
+            (DisplayColor::Yellow, Rgb::from([255, 243, 57])),
+            (DisplayColor::Red, Rgb::from([191, 2, 1])),
             (DisplayColor::Blue, Rgb::from([100, 64, 255])),
-            (DisplayColor::Green, Rgb::from([67, 138, 28])),
+            (DisplayColor::Green, Rgb::from([68, 138, 28])),
         ])
     }
 
@@ -72,7 +72,7 @@ impl From<&Rgb<u8>> for DisplayColor {
         DisplayColor::rgb_map()
             .iter()
             .find_map(|(k, v)| if value == v { Some(k.clone()) } else { None })
-            .unwrap_or_else(|| DisplayColor::White)
+            .expect("Mapping color from rgb failed. (Should be impossible)")
     }
 }
 
