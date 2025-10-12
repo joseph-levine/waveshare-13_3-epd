@@ -30,15 +30,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     if let Some(file) = args.file {
         let epd_image = fs::read(file)?;
 
-        let sleep_secs = 20;
-
-        device.clear();
         info!("Cleared. Sending image...");
         device.display(&epd_image);
         info!("Image sent. Sleeping display...");
         device.sleep();
-        info!("Display asleep. Waiting {}s", sleep_secs);
-        sleep(Duration::from_secs(sleep_secs));
     }
     info!("Screen clear. Waiting 2s...");
     sleep(Duration::from_secs(2));
