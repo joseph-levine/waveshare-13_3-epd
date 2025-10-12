@@ -1,2 +1,5 @@
 target
 .idea/
+*.jpeg
+*.jpg
+*.bin
