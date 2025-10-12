@@ -1,0 +1,12 @@
+[package]
+name = "display-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = { version = "4.11.0" }
+actix-web-httpauth = { version = "0.8.2" }
+actix-files = "0.6.8"
+actix-multipart = "0.7.2"
+env_logger = "0.11.8"
+serde = { version = "1.0.227", features = ["derive"] }
