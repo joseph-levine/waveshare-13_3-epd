@@ -10,14 +10,14 @@ use image::{EncodableLayout, ImageError};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 use tracing::level_filters::LevelFilter;
 
 pub fn convert(
-    file: PathBuf,
-    out_file: PathBuf,
-    dithered_file: Option<PathBuf>,
+    file: &Path,
+    out_file: &Path,
+    dithered_file: Option<&Path>,
 ) -> Result<(), ImageError> {
     let img = image::open(&file)?;
     info!("Opened image {}", &file.display());
