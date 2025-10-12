@@ -1,0 +1,10 @@
+[package]
+name = "convert-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+"clap" = {version = "^4.5.48", features = ["derive"] }
+"eink-convert" = { version = "*", path= ".."}
+"tracing" = {version = "^0.1.41"}
+"tracing-subscriber" = {version = "^0.3.20"}
