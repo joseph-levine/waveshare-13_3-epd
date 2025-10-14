@@ -124,17 +124,16 @@ impl EPaperDisplayBBDriver {
         }
         for byte in bytes {
             let mut b = byte.clone();
+            
+            self.data_pin.write(High);
             for _i in 0..8 {
-                spin_sleep();
                 self.clock_pin.write(Low);
                 self.data_pin
                     .write(if b & 0x80 == 0x80 { High } else { Low });
                 b = b << 1;
-                spin_sleep();
                 self.clock_pin.write(High);
             }
         }
-        sleep(Duration::from_millis(5));
     }
 
     fn select_chip(&mut self, new_selection: SelectedChip) {
