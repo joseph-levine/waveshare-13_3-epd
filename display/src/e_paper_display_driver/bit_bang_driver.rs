@@ -121,7 +121,7 @@ impl EPaperDisplayBBDriver {
             for _i in 0..8 {
                 self.clock_pin.write(Low);
                 self.data_pin
-                    .write(if b & 0x80 == 0x80 { High } else { Low });
+                    .write(if b & 0x80 != 0 { High } else { Low });
                 b = b << 1;
                 self.clock_pin.write(High);
             }
