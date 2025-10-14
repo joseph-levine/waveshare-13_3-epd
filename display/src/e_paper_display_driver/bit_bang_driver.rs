@@ -215,41 +215,31 @@ impl EPaperDisplayBBDriver {
 
 impl EPaperDisplayBBDriver {
     pub fn clear_screen(&mut self) {
-        let zeros: &[u8; DISPLAY_BYTES_PER_CHIP] = &[0u8; DISPLAY_BYTES_PER_CHIP];
-        self.select_chip(SelectedChip::Main);
-        self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(zeros);
-        self.select_chip(SelectedChip::Neither);
-        self.select_chip(SelectedChip::Peri);
-        self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(zeros);
-        self.select_chip(SelectedChip::Neither);
-        self.turn_display_on();
+        let ones: &[u8; EPD_BYTES_TOTAL] = &[1u8; EPD_BYTES_TOTAL];
+        self.display(ones);
     }
 
-    pub fn send_image(&mut self, image: &[u8]) {
-        assert_eq!(image.len(), HEIGHT * WIDTH / 2);
-        let mut top: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
-        let mut bottom: [u8; DISPLAY_BYTES_PER_CHIP] = [0u8; DISPLAY_BYTES_PER_CHIP];
-        for (k, v) in image.iter().enumerate() {
-            let column = k % WIDTH;
-            let row = k / WIDTH;
-            if column < HALF_WIDTH {
-                top[row * HALF_WIDTH + column] = *v;
-            } else {
-                bottom[row * HALF_WIDTH + (column - HALF_WIDTH)] = *v;
-            }
-        }
-
+    pub fn display(&mut self, image: &[u8]) {
+        assert_eq!(image.len(), EPD_BYTES_TOTAL);
         self.select_chip(SelectedChip::Main);
         self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(top.as_ref());
+        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
+            if i % 2 == 0 {
+                self.spi_write(chunk);
+            }
+        }
         self.select_chip(SelectedChip::Neither);
         self.select_chip(SelectedChip::Peri);
         self.spi_write(&[CommandCode::Dtm.cmd()]);
-        self.spi_write(bottom.as_ref());
+        for (i, chunk) in image.chunks(EPD_BYTE_WIDTH_PER_CHIP).enumerate() {
+            if i % 2 == 1 {
+                self.spi_write(chunk);
+            }
+        }
         self.select_chip(SelectedChip::Neither);
-        self.turn_display_on();
+        sleep(Duration::from_millis(100));
+
+        self.turn_on_display();
     }
 }
 
