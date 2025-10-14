@@ -133,6 +133,7 @@ impl EPaperDisplayBBDriver {
                 b = b << 1;
                 self.clock_pin.write(High);
             }
+            self.clock_pin.write(Low);
         }
     }
 
