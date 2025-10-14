@@ -1,8 +1,6 @@
 // use crate::e_paper_display_driver::bcm_peripherals::Level::{High,Low};
-use crate::display_constants::{DISPLAY_BYTES_PER_CHIP, HALF_WIDTH, HEIGHT, WIDTH};
-// use crate::e_paper_display_driver::gpio_pin::Level::{High, Low};
+use crate::display_constants::{EPD_BYTE_WIDTH_PER_CHIP,EPD_BYTES_TOTAL};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
-// use linux_embedded_hal::nb::block;
 use rppal::gpio::Level::{High, Low};
 use rppal::gpio::{Error as GpioError, Gpio, InputPin, OutputPin};
 use std::cmp::PartialEq;
@@ -41,12 +39,6 @@ pub struct EPaperDisplayBBDriver {
     selected_chip: SelectedChip,
 }
 
-fn spin_sleep() {
-    let start = Instant::now();
-    while start.elapsed().as_nanos() < 1000u128 {
-        /* no op */
-    }
-}
 
 impl EPaperDisplayBBDriver {
     pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
@@ -155,7 +147,6 @@ impl EPaperDisplayBBDriver {
             self.chip_select_peri_pin
                 .write(if select_peri { Low } else { High });
         }
-        spin_sleep();
         self.selected_chip = new_selection;
     }
 
