@@ -1,12 +1,11 @@
-// use crate::e_paper_display_driver::bcm_peripherals::Level::{High,Low};
-use crate::display_constants::{EPD_BYTE_WIDTH_PER_CHIP,EPD_BYTES_TOTAL};
+use crate::display_constants::{EPD_BYTES_TOTAL, EPD_BYTE_WIDTH_PER_CHIP};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use rppal::gpio::Level::{High, Low};
 use rppal::gpio::{Error as GpioError, Gpio, InputPin, OutputPin};
 use std::cmp::PartialEq;
 use std::io::Error as IoError;
 use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use thiserror::Error;
 use tracing::{debug, info};
 
@@ -38,7 +37,6 @@ pub struct EPaperDisplayBBDriver {
     power_pin: OutputPin,
     selected_chip: SelectedChip,
 }
-
 
 impl EPaperDisplayBBDriver {
     pub fn new() -> Result<EPaperDisplayBBDriver, EpdError> {
@@ -116,12 +114,11 @@ impl EPaperDisplayBBDriver {
         }
         for byte in bytes {
             let mut b = byte.clone();
-            
+
             self.data_pin.write(High);
             for _i in 0..8 {
                 self.clock_pin.write(Low);
-                self.data_pin
-                    .write(if b & 0x80 != 0 { High } else { Low });
+                self.data_pin.write(if b & 0x80 != 0 { High } else { Low });
                 b = b << 1;
                 self.clock_pin.write(High);
             }
@@ -138,23 +135,25 @@ impl EPaperDisplayBBDriver {
         let peri_selected = [SelectedChip::Peri, SelectedChip::Both].contains(&self.selected_chip);
         let select_peri = [SelectedChip::Peri, SelectedChip::Both].contains(&new_selection);
         if main_selected != select_main {
-            debug!("digital_write pin: 8, value: {}", if select_main {"0"} else {"1"} );
+            debug!(
+                "digital_write pin: 8, value: {}",
+                if select_main { "0" } else { "1" }
+            );
             self.chip_select_main_pin
                 .write(if select_main { Low } else { High });
         }
         if peri_selected != select_peri {
-            debug!("digital_write pin: 7, value: {}", if select_peri {"0"} else {"1"} );
+            debug!(
+                "digital_write pin: 7, value: {}",
+                if select_peri { "0" } else { "1" }
+            );
             self.chip_select_peri_pin
                 .write(if select_peri { Low } else { High });
         }
         self.selected_chip = new_selection;
     }
 
-    fn send_command(
-        &mut self,
-        command_code: CommandCode,
-        selected_chip: SelectedChip,
-    ) {
+    fn send_command(&mut self, command_code: CommandCode, selected_chip: SelectedChip) {
         self.select_chip(selected_chip);
         let mut full_cmd = vec![command_code.cmd()];
         if let Some(data) = command_code.data() {
@@ -190,7 +189,7 @@ impl EPaperDisplayBBDriver {
         info!("Display On");
     }
 
-    pub fn sleep_display(&mut self) {
+    pub fn sleep(&mut self) {
         self.send_command(CommandCode::DeepSleep, SelectedChip::Both);
         sleep(Duration::from_secs(2));
     }
@@ -205,7 +204,7 @@ impl EPaperDisplayBBDriver {
 }
 
 impl EPaperDisplayBBDriver {
-    pub fn clear_screen(&mut self) {
+    pub fn clear(&mut self) {
         let ones: &[u8; EPD_BYTES_TOTAL] = &[1u8; EPD_BYTES_TOTAL];
         self.display(ones);
     }
@@ -230,7 +229,7 @@ impl EPaperDisplayBBDriver {
         self.select_chip(SelectedChip::Neither);
         sleep(Duration::from_millis(100));
 
-        self.turn_on_display();
+        self.turn_display_on();
     }
 }
 

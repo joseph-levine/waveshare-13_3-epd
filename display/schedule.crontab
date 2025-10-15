@@ -1,4 +1,4 @@
-0 0 * * * /home/webserver/bin/display #clear
-0 5 * * * /home/webserver/bin/display /home/webserver/.local/share/eink/5.bin
-0 12 * * * /home/webserver/bin/display /home/webserver/.local/share/eink/12.bin
-0 18 * * * /home/webserver/bin/display /home/webserver/.local/share/eink/18.bin
+0 0 * * * /usr/local/bin/eink-display #clear
+0 5 * * * /usr/local/bin/eink-display /home/einkdisplay/5.bin
+0 12 * * * /usr/local/bin/eink-display /home/einkdisplay/12.bin
+0 18 * * * /usr/local/bin/eink-display /home/einkdisplay/18.bin

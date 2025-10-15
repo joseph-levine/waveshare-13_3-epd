@@ -2,7 +2,7 @@ mod display_constants;
 mod e_paper_display_driver;
 
 use clap::Parser;
-use e_paper_display_driver::bcm_driver::EPaperDisplayBcmDriver as Driver;
+use e_paper_display_driver::bit_bang_driver::EPaperDisplayBBDriver as Driver;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -23,10 +23,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     info!("Reading file...");
     info!("File loaded. Init driver.");
-    let mut device = Driver {};
-    device.init();
-    info!("Device init. Clearing display");
-    device.clear();
+    let mut device = Driver::new()?;
+
+    info!("Device init");
     if let Some(file) = args.file {
         let epd_image = fs::read(file)?;
 
@@ -34,6 +33,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         device.display(&epd_image);
         info!("Image sent. Sleeping display...");
         device.sleep();
+    }
+    else {
+        info!("Clearing display");
+        device.clear();
     }
     info!("Screen clear. Waiting 2s...");
     sleep(Duration::from_secs(2));
