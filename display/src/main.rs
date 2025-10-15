@@ -18,7 +18,7 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::DEBUG)
+        .with_max_level(LevelFilter::INFO)
         .init();
     let args = Args::parse();
     info!("Reading file...");

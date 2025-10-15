@@ -107,11 +107,6 @@ impl EPaperDisplayBBDriver {
     }
 
     fn spi_write(&mut self, bytes: &[u8]) {
-        if bytes.len() > 32 {
-            debug!("Spi write to {} bytes", bytes.len());
-        } else {
-            debug!("Spi write {:02X?}", bytes);
-        }
         for byte in bytes {
             let mut b = byte.clone();
 
