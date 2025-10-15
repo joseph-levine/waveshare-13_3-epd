@@ -1,0 +1,4 @@
+0 0 * * * /usr/local/bin/eink-display #clear
+0 5 * * * /usr/local/bin/eink-display /home/einkdisplay/5.bin
+0 12 * * * /usr/local/bin/eink-display /home/einkdisplay/12.bin
+0 18 * * * /usr/local/bin/eink-display /home/einkdisplay/18.bin

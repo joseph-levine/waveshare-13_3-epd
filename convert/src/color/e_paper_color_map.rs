@@ -48,9 +48,9 @@ impl ColorMap for EPaperColorMap {
         let display_color: DisplayColor = DisplayColor::from(index);
         let srgb = self.colormap.get(&display_color).map(|&v| Srgb::from_color(v));
         if let Some(srgb) = srgb {
-            let red = (srgb.red * u8::MAX as f32).round_ties_even() as u8;
-            let green = (srgb.green * u8::MAX as f32).round_ties_even() as u8;
-            let blue = (srgb.blue * u8::MAX as f32).round_ties_even() as u8;
+            let red:u8 = (srgb.red * (u8::MAX as f32)).round_ties_even() as u8;
+            let green:u8 = (srgb.green * (u8::MAX as f32)).round_ties_even() as u8;
+            let blue:u8 = (srgb.blue * (u8::MAX as f32)).round_ties_even() as u8;
             return Some(Rgb::from([red, green, blue]));
         }
         None

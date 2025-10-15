@@ -5,10 +5,15 @@ use crate::color::display_color::DisplayColor;
 use image::RgbImage;
 
 pub fn rgb_to_display_4bit(rgb: &RgbImage) -> Vec<u8> {
+    let mut pix = Vec::with_capacity(rgb.len() / 2);
+    for chunk in
     rgb.pixels()
         .map(DisplayColor::from)
         .collect::<Vec<_>>()
         .chunks(2)
-        .map(|pixels| (pixels[0] as u8) << 4 | pixels[1] as u8) /* pack the first byte as the upper 4 and the second as the lower 4 */
-        .collect()
+    {
+        let packed_byte = (u8::from(chunk[0])) << 4 | u8::from(chunk[1]);
+        pix.push(packed_byte);
+    }
+    pix
 }
