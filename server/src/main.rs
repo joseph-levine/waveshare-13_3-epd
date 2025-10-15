@@ -47,12 +47,12 @@ async fn upload(hour: Path<String>, MultipartForm(form): MultipartForm<UploadFor
     };
     let mut path = upload_dir().clone();
     path.push(format!("{}.{}", hour, extension));
-    if form.file.file.persist(path).is_err() {
+    if form.file.file.persist(&path).is_err() {
         return Ok(HttpResponse::InternalServerError());
     }
     let mut bin_path = upload_dir().clone();
     bin_path.push(format!("{}.bin", hour));
-    if let Err(e) = convert(&path, &bin_path, None) {
+    if convert(&path, &bin_path, None).is_err() {
         return Ok(HttpResponse::InternalServerError());
     }
 
@@ -63,7 +63,7 @@ async fn static_auth(
     req: ServiceRequest,
     creds: BasicAuth,
 ) -> ActixResult<ServiceRequest, (ActixError, ServiceRequest)> {
-    let basic_auth_env_password = var("BAISC_AUTH_PASSWORD").expect("No auth password in env. Panicking");
+    let basic_auth_env_password = var("BASIC_AUTH_PASSWORD").expect("No auth password in env. Panicking");
     let Some(password) = creds.password() else {
         return Err((ErrorUnauthorized("nope"), req));
     };
@@ -86,7 +86,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(pico)
     })
-        .bind(("127.0.0.1", 8080))?
+        .bind(("0.0.0.0", 8080))?
         .workers(1)
         .run()
         .await
