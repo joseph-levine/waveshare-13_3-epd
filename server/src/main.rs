@@ -67,7 +67,7 @@ async fn static_auth(
     let Some(password) = creds.password() else {
         return Err((ErrorUnauthorized("nope"), req));
     };
-    if basic_auth_env_password == password {
+    if basic_auth_env_password != password {
         Err((ErrorUnauthorized("nope"), req))
     } else {
         Ok(req)
