@@ -756,6 +756,7 @@ dependencies = [
  "env_logger",
  "image",
  "log",
+ "thiserror 2.0.17",
  "tokio",
 ]
 

@@ -16,8 +16,17 @@ use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use log::error;
 use std::env::var;
+use tokio::fs::remove_file;
 use std::path::PathBuf;
 use tokio::spawn;
+
+#[derive(Debug, thiserror::Error)]
+enum ImageConversionError {
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    ImageError(#[from] image::ImageError),
+}
 
 fn nyble_img_dir() -> PathBuf {
     PathBuf::from("./nyble_img")
@@ -45,9 +54,19 @@ async fn pico() -> impl Responder {
     HttpResponse::Ok().body(include_str!("../static/css/pico.classless.min.css"))
 }
 
-async fn save_image(hour: String, file: &TempFile) -> Result<(), Box<dyn std::error::Error>> {
+async fn save_image(hour: String, file: &TempFile) -> Result<(), ImageConversionError> {
     let bin_path = nyble_img_dir().join(format!("{}.bin", hour));
+    let remove_bin = remove_file(&bin_path).await;
+    if let Err(remove_bin) = remove_bin {
+        error!("Cannot remove image: {}\n{:?}", hour, remove_bin);
+        // continue anyhow
+    }
     let thumb_path = thumbs_dir().join(format!("{}.jpg", hour));
+    let remove_thumb = remove_file(&thumb_path).await;
+    if let Err(remove_thumb) = remove_thumb {
+        error!("Cannot remove thumbnail: {}\n{:?}", hour, remove_thumb);
+        // continue anyhow
+    }
 
     let mut decoder = ImageReader::open(&file.file.path())?
         .with_guessed_format()?
