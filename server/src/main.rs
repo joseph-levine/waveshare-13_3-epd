@@ -1,9 +1,7 @@
 use actix_files::NamedFile;
 use actix_multipart::form::tempfile::TempFile;
-use actix_multipart::form::{MultipartForm};
-use actix_web::error::{
-    ErrorBadRequest, ErrorNotFound, ErrorUnauthorized,
-};
+use actix_multipart::form::MultipartForm;
+use actix_web::error::{ErrorBadRequest, ErrorNotFound, ErrorUnauthorized};
 use actix_web::web::Path;
 use actix_web::{
     get, middleware::Logger, post, App, HttpResponse, HttpServer, Responder, Result as ActixResult,
@@ -16,8 +14,8 @@ use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use log::error;
 use std::env::var;
-use tokio::fs::remove_file;
 use std::path::PathBuf;
+use tokio::fs::remove_file;
 use tokio::spawn;
 
 #[derive(Debug, thiserror::Error)]
@@ -37,6 +35,7 @@ fn thumbs_dir() -> PathBuf {
 }
 
 const VALID_HOURS: [u8; 3] = [5, 12, 18];
+const VALID_DAYS: [u8; 7] = [1, 2, 3, 4, 5, 6, 7];
 
 #[derive(Debug, MultipartForm)]
 pub struct UploadForm {
@@ -54,17 +53,23 @@ async fn pico() -> impl Responder {
     HttpResponse::Ok().body(include_str!("../static/css/pico.classless.min.css"))
 }
 
-async fn save_image(hour: String, file: &TempFile) -> Result<(), ImageConversionError> {
-    let bin_path = nyble_img_dir().join(format!("{}.bin", hour));
+async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConversionError> {
+    let bin_path = nyble_img_dir().join(format!("{}/{:01}.bin", day, hour));
     let remove_bin = remove_file(&bin_path).await;
     if let Err(remove_bin) = remove_bin {
-        error!("Cannot remove image: {}\n{:?}", hour, remove_bin);
+        error!(
+            "Cannot remove image: {}/{:01} ({:?})",
+            day, hour, remove_bin
+        );
         // continue anyhow
     }
-    let thumb_path = thumbs_dir().join(format!("{}.jpg", hour));
+    let thumb_path = thumbs_dir().join(format!("{}/{}.jpeg", day, hour));
     let remove_thumb = remove_file(&thumb_path).await;
     if let Err(remove_thumb) = remove_thumb {
-        error!("Cannot remove thumbnail: {}\n{:?}", hour, remove_thumb);
+        error!(
+            "Cannot remove thumbnail: {}/{} ({:?})",
+            day, hour, remove_thumb
+        );
         // continue anyhow
     }
 
@@ -85,32 +90,39 @@ async fn save_image(hour: String, file: &TempFile) -> Result<(), ImageConversion
     Ok(())
 }
 
-#[post("/upload/{hour}")]
+#[post("/upload/{day}/{hour}")]
 async fn upload(
-    hour: Path<String>,
+    path_parts: Path<(u8, u8)>,
     MultipartForm(form): MultipartForm<UploadForm>,
 ) -> ActixResult<impl Responder> {
-    let hour = hour.into_inner();
-    let Ok(hour_valid) = hour.parse::<u8>() else {
-        return Err(ErrorBadRequest("Hour not a number"));
-    };
-    if !VALID_HOURS.contains(&hour_valid) {
+    let (day, hour) = path_parts.into_inner();
+    if !VALID_HOURS.contains(&hour) {
         return Err(ErrorBadRequest("Hour not in allowed list of hours"));
+    }
+    if !VALID_DAYS.contains(&day) {
+        return Err(ErrorBadRequest("Day not in allowed list of days"));
     }
 
     spawn(async move {
-        let _ = save_image(hour, &form.file).await;
+        let _ = save_image(day, hour, &form.file).await;
     });
 
     Ok(HttpResponse::Ok())
 }
 
-#[get("/thumbs/{image_name}")]
-async fn thumbs(image_name: Path<String>) -> ActixResult<impl Responder> {
-    let image_name = image_name.into_inner();
+#[get("/thumbs/{day}/{image_name}")]
+async fn thumbs(path_parts: Path<(u8, String)>) -> ActixResult<impl Responder> {
+    let (day, image_name) = path_parts.into_inner();
+
+    if !VALID_DAYS.contains(&day) {
+        return Err(ErrorBadRequest("Day not in allowed list of days"));
+    };
+
     let valid_names = VALID_HOURS.map(|u| format!("{}.jpeg", u));
     if valid_names.contains(&image_name) {
-        return Ok(NamedFile::open_async(thumbs_dir().join(image_name)).await?);
+        return Ok(
+            NamedFile::open_async(thumbs_dir().join(format!("{}", day)).join(image_name)).await?,
+        );
     }
     Err(ErrorNotFound("Thumbnail not found"))
 }
@@ -137,7 +149,7 @@ async fn main() -> std::io::Result<()> {
             .service(thumbs)
     })
     .bind(("0.0.0.0", 8080))?
-    .workers(1)
+    .workers(2)
     .run()
     .await
 }
