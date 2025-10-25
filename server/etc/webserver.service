@@ -1,0 +1,16 @@
+[Unit]
+Description=Rust e-ink display webserver
+After=network.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+Type=simple
+ExecStart=/usr/local/bin/display-server
+User=einkdisplay
+Environment='UPLOAD_DIR=/home/einkdisplay'
+Environment='BASIC_AUTH_PASSWORD='
+WorkingDirectory=/home/einkdisplay
+
+[Install]
+WantedBy=multi-user.target

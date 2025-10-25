@@ -1,0 +1,2 @@
+0 0 * * * /usr/local/bin/eink-display #clear
+0 5,12,18 * * * /usr/local/bin/eink-display /home/einkdisplay/nyble_images/$(/usr/bin/date +\%u)/\$(/usr/bin/expr $(/usr/bin/date +\%H) + 0).bin
