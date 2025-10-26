@@ -29,26 +29,27 @@
 <!--            <label><input type="radio" name="hour" value="2"/>2:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="3"/>3:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="4"/>4:00AM</label>-->
-            <label><input type="radio" name="hour" value="5" required="required"/><img src="thumbs/none.jpeg" alt="5am photo"/>5:00AM</label>
+            <label><input type="radio" name="hour" value="5" required="required"/>5:00AM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
 <!--            <label><input type="radio" name="hour" value="6"/>6:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="7"/>7:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="8"/>8:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="9"/>9:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="10"/>10:00AM</label>-->
 <!--            <label><input type="radio" name="hour" value="11"/>11:00AM</label>-->
-            <label><input type="radio" name="hour" value="12" required="required"/><img src="thumbs/none.jpeg" alt="5am photo"/>12:00PM</label>
+            <label><input type="radio" name="hour" value="12" required="required"/>12:00PM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
 <!--            <label><input type="radio" name="hour" value="13"/>1:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="14"/>2:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="15"/>3:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="16"/>4:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="17"/>5:00PM</label>-->
-            <label><input type="radio" name="hour" value="18" required="required"/><img src="thumbs/none.jpeg" alt="5am photo"/>6:00PM</label>
+            <label><input type="radio" name="hour" value="18" required="required"/>6:00PM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
 <!--            <label><input type="radio" name="hour" value="19"/>7:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="20"/>8:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="21"/>9:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="22"/>10:00PM</label>-->
 <!--            <label><input type="radio" name="hour" value="23"/>11:00PM</label>-->
         </fieldset>
+        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>
         <input type="submit" id="submit"/>
     </form>
 </main>
@@ -77,6 +78,7 @@
         self.text = "Submitted...";
 
         const formData = new FormData(form);
+        formData.append("json", JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked}))
         const response = await fetch("/upload/" + day + "/" + hour, {
             method: "POST",
             body: formData,

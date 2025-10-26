@@ -8,6 +8,8 @@ struct Args {
     file_input: PathBuf,
     file_output: PathBuf,
     dithered_output: Option<PathBuf>,
+    #[clap(long)]
+    no_dither: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {

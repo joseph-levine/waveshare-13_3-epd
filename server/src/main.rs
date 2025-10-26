@@ -1,6 +1,5 @@
 use actix_files::NamedFile;
-use actix_multipart::form::tempfile::TempFile;
-use actix_multipart::form::MultipartForm;
+use actix_multipart::form::{json::Json as MpJson, tempfile::TempFile, MultipartForm};
 use actix_web::error::{ErrorBadRequest, ErrorNotFound, ErrorUnauthorized};
 use actix_web::web::Path;
 use actix_web::{
@@ -12,10 +11,12 @@ use image::imageops::Lanczos3;
 use image::metadata::Orientation::NoTransforms;
 use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
-use log::error;
+use log::{error, info};
+use serde::Deserialize;
 use std::env::var;
 use std::path::PathBuf;
 use tokio::fs::remove_file;
+use tokio::process::Command;
 use tokio::spawn;
 
 #[derive(Debug, thiserror::Error)]
@@ -26,8 +27,8 @@ enum ImageConversionError {
     ImageError(#[from] image::ImageError),
 }
 
-fn nyble_img_dir() -> PathBuf {
-    PathBuf::from("./nyble_img")
+fn nybble_img_dir() -> PathBuf {
+    PathBuf::from("./nybble_images")
 }
 
 fn thumbs_dir() -> PathBuf {
@@ -37,10 +38,16 @@ fn thumbs_dir() -> PathBuf {
 const VALID_HOURS: [u8; 3] = [5, 12, 18];
 const VALID_DAYS: [u8; 7] = [1, 2, 3, 4, 5, 6, 7];
 
+// #[derive(Debug, Deserialize)]
+// struct UploadJsonForm {
+//     show_now: bool
+// }
+
 #[derive(Debug, MultipartForm)]
-pub struct UploadForm {
+struct UploadMultipartForm {
     #[multipart()]
     file: TempFile,
+    // json: MpJson<UploadJsonForm>,
 }
 
 #[get("/")]
@@ -54,13 +61,10 @@ async fn pico() -> impl Responder {
 }
 
 async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConversionError> {
-    let bin_path = nyble_img_dir().join(format!("{}/{:01}.bin", day, hour));
+    let bin_path = nybble_img_dir().join(format!("{}/{}.bin", day, hour));
     let remove_bin = remove_file(&bin_path).await;
     if let Err(remove_bin) = remove_bin {
-        error!(
-            "Cannot remove image: {}/{:01} ({:?})",
-            day, hour, remove_bin
-        );
+        error!("Cannot remove image: {}/{} ({:?})", day, hour, remove_bin);
         // continue anyhow
     }
     let thumb_path = thumbs_dir().join(format!("{}/{}.jpeg", day, hour));
@@ -93,8 +97,9 @@ async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConve
 #[post("/upload/{day}/{hour}")]
 async fn upload(
     path_parts: Path<(u8, u8)>,
-    MultipartForm(form): MultipartForm<UploadForm>,
+    MultipartForm(form): MultipartForm<UploadMultipartForm>,
 ) -> ActixResult<impl Responder> {
+    info!("{:?}", form);
     let (day, hour) = path_parts.into_inner();
     if !VALID_HOURS.contains(&hour) {
         return Err(ErrorBadRequest("Hour not in allowed list of hours"));
@@ -102,9 +107,18 @@ async fn upload(
     if !VALID_DAYS.contains(&day) {
         return Err(ErrorBadRequest("Day not in allowed list of days"));
     }
+    // let display_now = (&form).json.show_now;
 
     spawn(async move {
-        let _ = save_image(day, hour, &form.file).await;
+        if save_image(day, hour, &form.file).await.is_ok()
+        /* && display_now */
+        {
+            let mut display_cmd = Command::new("/usr/local/bin/eink-display");
+            display_cmd.args([nybble_img_dir().join(format!("{}/{}.bin", day, hour))]);
+            if let Err(e) = display_cmd.spawn() {
+                error!("Failed to spawn eink display: {}", e);
+            }
+        }
     });
 
     Ok(HttpResponse::Ok())

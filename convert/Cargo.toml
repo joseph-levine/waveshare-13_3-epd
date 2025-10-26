@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2024"
 
 [dependencies]
-thiserror = { version = "^2.0.17" }
-tracing = { version = "^0.1.41" }
 image = { version = "^0.25.8" }
-palette = { version = "^0.7.6" }
+imageproc = { version = "0.25.0" }
+palette = { version = "^0.7.6"}
+tracing = { version = "^0.1.41" }

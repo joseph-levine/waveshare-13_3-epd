@@ -1,5 +1,5 @@
 use image::Rgb;
-use palette::Oklab;
+use palette::{IntoColor, Oklab, Srgb};
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -9,12 +9,12 @@ pub enum DisplayColor {
     White = 0x01,
     Yellow = 0x02,
     Red = 0x03,
-    Blue = 0x04,
-    Green = 0x05,
+    Blue = 0x05,
+    Green = 0x06,
 }
 
 impl DisplayColor {
-    fn rgb_map() -> HashMap<DisplayColor, Rgb<u8>> {
+    pub fn rgb_map() -> HashMap<DisplayColor, Rgb<u8>> {
         HashMap::from([
             (DisplayColor::Black, Rgb::from([0, 0, 0])),
             (DisplayColor::White, Rgb::from([255, 255, 255])),
@@ -22,29 +22,6 @@ impl DisplayColor {
             (DisplayColor::Red, Rgb::from([191, 2, 1])),
             (DisplayColor::Blue, Rgb::from([100, 64, 255])),
             (DisplayColor::Green, Rgb::from([68, 138, 28])),
-        ])
-    }
-
-    fn oklab_map() -> HashMap<DisplayColor, Oklab> {
-        HashMap::from([
-            (DisplayColor::Black, Oklab::from_components((0., 0., 0.))),
-            (DisplayColor::White, Oklab::from_components((1., 0., 0.))),
-            (
-                DisplayColor::Yellow,
-                Oklab::from_components((0.945, -0.051, 0.181)),
-            ),
-            (
-                DisplayColor::Red,
-                Oklab::from_components((0.505, 0.180, 0.101)),
-            ),
-            (
-                DisplayColor::Blue,
-                Oklab::from_components((0.543, 0.0537, -0.256)),
-            ),
-            (
-                DisplayColor::Green,
-                Oklab::from_components((0.566, -0.115, 0.107)),
-            ),
         ])
     }
 }
@@ -60,10 +37,8 @@ impl From<DisplayColor> for Rgb<u8> {
 
 impl From<DisplayColor> for Oklab {
     fn from(value: DisplayColor) -> Self {
-        DisplayColor::oklab_map()
-            .get(&value)
-            .map(|v| v.clone())
-            .expect("Should be impossible")
+        let rgb: Rgb<u8> = value.into();
+        rgb_to_oklab(rgb)
     }
 }
 
@@ -83,8 +58,8 @@ impl From<usize> for DisplayColor {
             1 => DisplayColor::White,
             2 => DisplayColor::Yellow,
             3 => DisplayColor::Red,
-            4 => DisplayColor::Blue,
-            5 => DisplayColor::Green,
+            5 => DisplayColor::Blue,
+            6 => DisplayColor::Green,
             _ => DisplayColor::White,
         }
     }
@@ -97,8 +72,16 @@ impl From<DisplayColor> for u8 {
             DisplayColor::White => 1,
             DisplayColor::Yellow => 2,
             DisplayColor::Red => 3,
-            DisplayColor::Blue => 4,
-            DisplayColor::Green => 5,
+            DisplayColor::Blue => 5,
+            DisplayColor::Green => 6,
         }
     }
+}
+
+pub fn rgb_to_oklab(rgb: Rgb<u8>) -> Oklab {
+    let r = rgb.0[0] as f32 / u8::MAX as f32;
+    let g = rgb.0[1] as f32 / u8::MAX as f32;
+    let b = rgb.0[2] as f32 / u8::MAX as f32;
+    let srgb = Srgb::from((r, g, b));
+    srgb.into_color()
 }

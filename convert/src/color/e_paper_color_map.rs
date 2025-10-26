@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use crate::color::display_color::{rgb_to_oklab, DisplayColor};
 use image::imageops::ColorMap;
 use image::Rgb;
-use palette::{FromColor, Oklab, Srgb};
 use palette::color_difference::HyAb;
-use crate::color::display_color::DisplayColor;
+use palette::Oklab;
+use std::collections::HashMap;
 
 pub struct EPaperColorMap {
     colormap: HashMap<DisplayColor, Oklab>,
@@ -29,31 +29,22 @@ impl ColorMap for EPaperColorMap {
     type Color = Rgb<u8>; // dither requires this to be u8
 
     fn index_of(&self, color: &Self::Color) -> usize {
-        let r = color.0[0] as f32 / u8::MAX as f32;
-        let g = color.0[1] as f32 / u8::MAX as f32;
-        let b = color.0[2] as f32 / u8::MAX as f32;
-        let srgb= Srgb::<f32>::from_components((r,g,b));
-        let oklab_color: Oklab<f32> = Oklab::from_color(srgb).into();
-        self.colormap
+        let oklab_color: Oklab = rgb_to_oklab(*color);
+        let color = self
+            .colormap
             .iter()
             .min_by(|(_, a), (_, b)| {
-                a.hybrid_distance(oklab_color.clone()).total_cmp(&b.hybrid_distance(oklab_color.clone()))
+                a.hybrid_distance(oklab_color.clone())
+                    .total_cmp(&b.hybrid_distance(oklab_color.clone()))
             })
             .map(|(index, _)| index)
-            .unwrap_or(&DisplayColor::White)
-            .clone() as usize
+            .expect("Color not found in map");
+        *color as usize
     }
 
     fn lookup(&self, index: usize) -> Option<Self::Color> {
         let display_color: DisplayColor = DisplayColor::from(index);
-        let srgb = self.colormap.get(&display_color).map(|&v| Srgb::from_color(v));
-        if let Some(srgb) = srgb {
-            let red:u8 = (srgb.red * (u8::MAX as f32)).round_ties_even() as u8;
-            let green:u8 = (srgb.green * (u8::MAX as f32)).round_ties_even() as u8;
-            let blue:u8 = (srgb.blue * (u8::MAX as f32)).round_ties_even() as u8;
-            return Some(Rgb::from([red, green, blue]));
-        }
-        None
+        Some(display_color.into())
     }
 
     fn has_lookup(&self) -> bool {

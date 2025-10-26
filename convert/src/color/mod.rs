@@ -1,10 +1,11 @@
 mod display_color;
 pub mod e_paper_color_map;
+pub mod color_histogram_eq;
 
 use crate::color::display_color::DisplayColor;
 use image::RgbImage;
 
-pub fn rgb_to_display_4bit(rgb: &RgbImage) -> Vec<u8> {
+pub fn rgb_to_display_nybbles(rgb: &RgbImage) -> Vec<u8> {
     let mut pix = Vec::with_capacity(rgb.len() / 2);
     for chunk in
     rgb.pixels()
