@@ -13,6 +13,7 @@ use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use log::{error, info};
 use serde::Deserialize;
+use serde_repr::Deserialize_repr;
 use std::env::var;
 use std::path::PathBuf;
 use tokio::fs::remove_file;
@@ -27,16 +28,57 @@ enum ImageConversionError {
     ImageError(#[from] image::ImageError),
 }
 
-fn nybble_img_dir() -> PathBuf {
-    PathBuf::from("./nybble_images")
+fn nybble_img_bin_path(day: u8, hour: u8) -> PathBuf {
+    PathBuf::from("./nybble_images").join(format!("{}/{}.bin", day, hour))
 }
 
-fn thumbs_dir() -> PathBuf {
-    PathBuf::from("./thumbs")
+fn thumb_path(day: u8, hour: u8) -> PathBuf {
+    PathBuf::from("./thumbs").join(format!("{}/{}.jpeg", day, hour))
 }
 
-const VALID_HOURS: [u8; 3] = [5, 12, 18];
-const VALID_DAYS: [u8; 7] = [1, 2, 3, 4, 5, 6, 7];
+#[derive(Debug, Deserialize_repr, Copy, Clone)]
+#[repr(u8)]
+enum ValidHour {
+    Morning = 5,
+    Noon = 12,
+    Night = 18
+}
+impl Into<u8> for ValidHour {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
+impl TryInto<ValidHour> for u8 {
+    type Error = ();
+
+    fn try_into(self) -> Result<ValidHour, Self::Error> {
+        match self {
+            5 => Ok(ValidHour::Morning),
+            12 => Ok(ValidHour::Noon),
+            18 => Ok(ValidHour::Night),
+            _ => Err(())
+        }
+    }
+}
+#[derive(Debug, Deserialize_repr, Copy, Clone)]
+#[repr(u8)]
+enum ValidDay {
+    Monday = 1,
+    Tuesday = 2,
+    Wednesday = 3,
+    Thursday = 4,
+    Friday = 5,
+    Saturday = 6,
+    Sunday = 7,
+}
+
+impl Into<u8> for ValidDay {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
 
 // #[derive(Debug, Deserialize)]
 // struct UploadJsonForm {
@@ -61,13 +103,13 @@ async fn pico() -> impl Responder {
 }
 
 async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConversionError> {
-    let bin_path = nybble_img_dir().join(format!("{}/{}.bin", day, hour));
+    let bin_path = nybble_img_bin_path(day, hour);
     let remove_bin = remove_file(&bin_path).await;
     if let Err(remove_bin) = remove_bin {
         error!("Cannot remove image: {}/{} ({:?})", day, hour, remove_bin);
         // continue anyhow
     }
-    let thumb_path = thumbs_dir().join(format!("{}/{}.jpeg", day, hour));
+    let thumb_path = thumb_path(day, hour);
     let remove_thumb = remove_file(&thumb_path).await;
     if let Err(remove_thumb) = remove_thumb {
         error!(
@@ -96,25 +138,16 @@ async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConve
 
 #[post("/upload/{day}/{hour}")]
 async fn upload(
-    path_parts: Path<(u8, u8)>,
+    path_parts: Path<(ValidDay, ValidHour)>,
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
 ) -> ActixResult<impl Responder> {
-    info!("{:?}", form);
     let (day, hour) = path_parts.into_inner();
-    if !VALID_HOURS.contains(&hour) {
-        return Err(ErrorBadRequest("Hour not in allowed list of hours"));
-    }
-    if !VALID_DAYS.contains(&day) {
-        return Err(ErrorBadRequest("Day not in allowed list of days"));
-    }
-    // let display_now = (&form).json.show_now;
-
     spawn(async move {
-        if save_image(day, hour, &form.file).await.is_ok()
+        if save_image(day.into(), hour.into(), &form.file).await.is_ok()
         /* && display_now */
         {
             let mut display_cmd = Command::new("/usr/local/bin/eink-display");
-            display_cmd.args([nybble_img_dir().join(format!("{}/{}.bin", day, hour))]);
+            display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
             if let Err(e) = display_cmd.spawn() {
                 error!("Failed to spawn eink display: {}", e);
             }
@@ -124,21 +157,36 @@ async fn upload(
     Ok(HttpResponse::Ok())
 }
 
+#[post("/show/{day}/{hour}")]
+async fn show(
+    path_parts: Path<(ValidDay, ValidHour)>
+) -> ActixResult<impl Responder> {
+    let (day, hour) = path_parts.into_inner();
+    spawn(async move {
+        let mut display_cmd = Command::new("/usr/local/bin/eink-display");
+        display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
+        if let Err(e) = display_cmd.spawn() {
+            error!("Failed to spawn eink display: {}", e);
+        }
+    });
+
+    Ok(HttpResponse::Ok())
+}
+
 #[get("/thumbs/{day}/{image_name}")]
-async fn thumbs(path_parts: Path<(u8, String)>) -> ActixResult<impl Responder> {
+async fn thumbs(path_parts: Path<(ValidDay, String)>) -> ActixResult<impl Responder> {
     let (day, image_name) = path_parts.into_inner();
 
-    if !VALID_DAYS.contains(&day) {
-        return Err(ErrorBadRequest("Day not in allowed list of days"));
-    };
-
-    let valid_names = VALID_HOURS.map(|u| format!("{}.jpeg", u));
-    if valid_names.contains(&image_name) {
-        return Ok(
-            NamedFile::open_async(thumbs_dir().join(format!("{}", day)).join(image_name)).await?,
-        );
-    }
-    Err(ErrorNotFound("Thumbnail not found"))
+    let hour = image_name
+        .split(".")
+        .next()
+        .ok_or(ErrorBadRequest("Invalid image name"))?;
+    let hour: u8 = hour
+        .parse()
+        .map_err(|_| ErrorBadRequest("Invalid image name"))?;
+    let hour: ValidHour = hour.try_into()
+        .map_err(|_| ErrorBadRequest("Invalid image name"))?;
+    Ok(NamedFile::open_async(thumb_path(day.into(), hour.into())).await?)
 }
 
 #[tokio::main]
@@ -161,6 +209,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(pico)
             .service(thumbs)
+            .service(show)
     })
     .bind(("0.0.0.0", 8080))?
     .workers(2)

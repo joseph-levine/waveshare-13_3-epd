@@ -13,7 +13,7 @@
         <h2>File</h2>
         <input type="file" name="file" accept="image/*" required="required"/>
         <h2>Day</h2>
-        <fieldset role="group">
+        <fieldset>
             <label><input type="radio" name="day" value="1" required="required"/>Monday</label>
             <label><input type="radio" name="day" value="2" required="required"/>Tuesday</label>
             <label><input type="radio" name="day" value="3" required="required"/>Wednesday</label>
@@ -24,82 +24,120 @@
         </fieldset>
         <h2>Time</h2>
         <fieldset>
-<!--            <label><input type="radio" name="hour" value="0"/>12:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="1"/>1:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="2"/>2:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="3"/>3:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="4"/>4:00AM</label>-->
-            <label><input type="radio" name="hour" value="5" required="required"/>5:00AM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
-<!--            <label><input type="radio" name="hour" value="6"/>6:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="7"/>7:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="8"/>8:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="9"/>9:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="10"/>10:00AM</label>-->
-<!--            <label><input type="radio" name="hour" value="11"/>11:00AM</label>-->
-            <label><input type="radio" name="hour" value="12" required="required"/>12:00PM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
-<!--            <label><input type="radio" name="hour" value="13"/>1:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="14"/>2:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="15"/>3:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="16"/>4:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="17"/>5:00PM</label>-->
-            <label><input type="radio" name="hour" value="18" required="required"/>6:00PM<img src="thumbs/none.jpeg" alt="5am photo"/></label>
-<!--            <label><input type="radio" name="hour" value="19"/>7:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="20"/>8:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="21"/>9:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="22"/>10:00PM</label>-->
-<!--            <label><input type="radio" name="hour" value="23"/>11:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="0"/>12:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="1"/>1:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="2"/>2:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="3"/>3:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="4"/>4:00AM</label>-->
+            <label><input type="radio" name="hour" value="5" required="required"/>5:00AM<img src="" hidden="hidden"
+                                                                                             alt="5am photo"/></label>
+            <!--            <label><input type="radio" name="hour" value="6"/>6:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="7"/>7:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="8"/>8:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="9"/>9:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="10"/>10:00AM</label>-->
+            <!--            <label><input type="radio" name="hour" value="11"/>11:00AM</label>-->
+            <label><input type="radio" name="hour" value="12" required="required"/>12:00PM<img src="" hidden="hidden"
+                                                                                               alt="5am photo"/></label>
+            <!--            <label><input type="radio" name="hour" value="13"/>1:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="14"/>2:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="15"/>3:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="16"/>4:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="17"/>5:00PM</label>-->
+            <label><input type="radio" name="hour" value="18" required="required"/>6:00PM<img src="" hidden="hidden"
+                                                                                              alt="5am photo"/></label>
+            <!--            <label><input type="radio" name="hour" value="19"/>7:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="20"/>8:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="21"/>9:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="22"/>10:00PM</label>-->
+            <!--            <label><input type="radio" name="hour" value="23"/>11:00PM</label>-->
         </fieldset>
-        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>
-        <input type="submit" id="submit"/>
+        <!--        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>-->
+        <input type="submit" id="submit" value="Upload"/><input type="button" id="show_it" value="Show Selected"/>
     </form>
 </main>
-<dialog id="successModal" closedby="any">
+<dialog id="uploadModal" closedby="any">
     <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="successModal.close()"></button>
-            <h3>Uploaded successfully</h3>
-        </header>
-        <p>The file has been uploaded. It'll start dithering, and should be done in a minute or so.</p>
-        <footer>
-            <button autofocus role="button" onclick="successModal.close()">Great!</button>
-        </footer>
+        <form method="dialog">
+            <header>
+                <button aria-label="Close" rel="prev"></button>
+                <h3>Uploaded successfully</h3>
+            </header>
+            <p>The file has been uploaded. It'll start dithering, and should be done in a minute or so.</p>
+            <footer>
+                <button autofocus="autofocus" role="button">Great!</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+<dialog id="showImageModal" closedby="any">
+    <article>
+        <form method="dialog">
+            <header>
+                <button aria-label="Close" rel="prev"></button>
+                <h3>Task launched</h3>
+            </header>
+            <p>The display task has been launched in the background. The display should change in under a minute.</p>
+            <footer>
+                <button autofocus="autofocus" role="button">Great!</button>
+            </footer>
+        </form>
     </article>
 </dialog>
 <script>
-    const form = document.querySelector("#form");
-
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const day = document.querySelector("input[name='day']:checked").value;
-        const hour =  document.querySelector("input[name='hour']:checked").value;
-
-        const self = event.target;
-        self.disabled = true;
-        self.text = "Submitted...";
-
-        const formData = new FormData(form);
-        formData.append("json", JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked}))
-        const response = await fetch("/upload/" + day + "/" + hour, {
-            method: "POST",
-            body: formData,
-        });
-        if (response.ok) {
-            successModal.show();
-        }
-    });
-
     for (const day of document.querySelectorAll("input[name='day']")) {
         day.addEventListener("change", async (event) => {
             const day = event.target.value;
-            debugger
             for (const hourElem of document.querySelectorAll("input[name='hour']")) {
                 const image = hourElem.parentElement.querySelector("img");
                 if (!!image) {
-                    image.src = `thumbs/${day}/${hourElem.value}.jpeg`
+                    image.src = `thumbs/${day}/${hourElem.value}.jpeg`;
+                    image.hidden = false;
                 }
             }
         });
     }
+
+    document.getElementById("form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const day = document.querySelector("input[name='day']:checked").value;
+        const hour = document.querySelector("input[name='hour']:checked").value;
+
+        const submit_input = document.getElementById("submit");
+        submit_input.disabled = true;
+        submit_input.value = "Submitted...";
+        const formData = new FormData(event.target);
+        // formData.append("json", JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked}))
+        const response = await fetch(`/upload/${day}/${hour}`, {
+            method: "POST",
+            body: formData,
+        });
+        if (response.ok) {
+            document.getElementById("uploadModal").show();
+        } else {
+            alert("upload failed");
+        }
+        submit_input.disabled = false;
+        submit_input.value = "Upload";
+    })
+
+    document.getElementById("show_it").addEventListener("click", async (event) => {
+        const day = document.querySelector("input[name='day']:checked").value;
+        const hour = document.querySelector("input[name='hour']:checked").value;
+        const display_input = document.getElementById("show_it");
+        display_input.disabled = true;
+        display_input.value = "Requested..."
+
+        const response = await fetch(`/show/${day}/${hour}`, {method: "POST"});
+        if (response.ok) {
+            document.getElementById("showImageModal").show();
+        } else {
+            alert("display failed");
+        }
+        display_input.disabled = false;
+        display_input.value = "Show Selected"
+    });
+
 </script>
 </body>
 </html>
