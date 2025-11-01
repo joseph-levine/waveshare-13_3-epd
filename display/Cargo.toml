@@ -8,5 +8,5 @@ clap = { version = "^4.5.48", features = ["derive"] }
 thiserror = { version = "^2.0.17" }
 tracing = { version = "^0.1.41" }
 tracing-subscriber = { version = "^0.3.20" }
-rppal = { version = "0.22.1", features = ["hal"] }
-embedded-hal = { version = "1.0.0" }
+rppal = { version = "0.22.1", features = ["hal"] } # public archive :(
+embedded-hal = { version = "^1.0.0" }
