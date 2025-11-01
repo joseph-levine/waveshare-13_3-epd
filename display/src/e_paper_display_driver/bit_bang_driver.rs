@@ -1,3 +1,4 @@
+use embedded_hal::delay::DelayNs;
 use crate::display_constants::{EPD_BYTES_TOTAL, EPD_BYTE_WIDTH_PER_CHIP};
 use crate::e_paper_display_driver::{command_code::CommandCode, gpio_pin::GpioPin};
 use rppal::gpio::Level::{High, Low};
@@ -6,6 +7,7 @@ use std::cmp::PartialEq;
 use std::io::Error as IoError;
 use std::thread::sleep;
 use std::time::Duration;
+use rppal::hal::Delay;
 use thiserror::Error;
 use tracing::{debug, info};
 
@@ -36,6 +38,7 @@ pub struct EPaperDisplayBBDriver {
     busy_pin: InputPin,
     power_pin: OutputPin,
     selected_chip: SelectedChip,
+    delay: Delay
 }
 
 impl EPaperDisplayBBDriver {
@@ -76,6 +79,7 @@ impl EPaperDisplayBBDriver {
             busy_pin,
             power_pin,
             selected_chip: SelectedChip::Both,
+            delay: Delay::new(),
         };
 
         this.reset();
@@ -116,6 +120,7 @@ impl EPaperDisplayBBDriver {
                 self.data_pin.write(if b & 0x80 != 0 { High } else { Low });
                 b = b << 1;
                 self.clock_pin.write(High);
+                self.delay.delay_ns(10);
             }
             self.clock_pin.write(Low);
         }
@@ -159,7 +164,7 @@ impl EPaperDisplayBBDriver {
     }
 
     fn wait_for_not_busy(&self) {
-        sleep(Duration::from_millis(20));
+        sleep(Duration::from_millis(50));
         info!("waiting for not busy");
         while self.busy_pin.read() == Low {
             sleep(Duration::from_millis(10));
@@ -200,8 +205,8 @@ impl EPaperDisplayBBDriver {
 
 impl EPaperDisplayBBDriver {
     pub fn clear(&mut self) {
-        let ones: &[u8; EPD_BYTES_TOTAL] = &[1u8; EPD_BYTES_TOTAL];
-        self.display(ones);
+        let nybble_ones: &[u8; EPD_BYTES_TOTAL] = &[0b00010001u8; EPD_BYTES_TOTAL];
+        self.display(nybble_ones);
     }
 
     pub fn display(&mut self, image: &[u8]) {

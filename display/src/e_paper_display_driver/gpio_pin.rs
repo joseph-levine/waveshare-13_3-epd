@@ -22,13 +22,6 @@ impl From<u8> for Level {
     }
 }
 
-pub trait GpioReadWrite {
-    fn set_all_modes();
-    fn set_mode(&self);
-    fn write(&self, level: Level);
-    fn read(&self) -> Level;
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GpioPin {
