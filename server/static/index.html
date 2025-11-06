@@ -52,7 +52,7 @@
             <!--            <label><input type="radio" name="hour" value="22"/>10:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="23"/>11:00PM</label>-->
         </fieldset>
-        <!--        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>-->
+        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>
         <input type="submit" id="submit" value="Upload"/><input type="button" id="show_it" value="Show Selected"/>
     </form>
 </main>
@@ -107,7 +107,7 @@
         submit_input.disabled = true;
         submit_input.value = "Submitted...";
         const formData = new FormData(event.target);
-        // formData.append("json", JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked}))
+        formData.append("json", new Blob([JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked})], {type: "application/json"}))
         const response = await fetch(`/upload/${day}/${hour}`, {
             method: "POST",
             body: formData,

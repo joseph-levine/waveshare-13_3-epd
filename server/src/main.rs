@@ -80,16 +80,16 @@ impl Into<u8> for ValidDay {
 }
 
 
-// #[derive(Debug, Deserialize)]
-// struct UploadJsonForm {
-//     show_now: bool
-// }
+#[derive(Debug, Deserialize)]
+struct UploadJsonForm {
+    show_now: bool
+}
 
 #[derive(Debug, MultipartForm)]
 struct UploadMultipartForm {
     #[multipart()]
     file: TempFile,
-    // json: MpJson<UploadJsonForm>,
+    json: MpJson<UploadJsonForm>,
 }
 
 #[get("/")]
@@ -142,10 +142,9 @@ async fn upload(
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
 ) -> ActixResult<impl Responder> {
     let (day, hour) = path_parts.into_inner();
+    let display_now = form.json.show_now;
     spawn(async move {
-        if save_image(day.into(), hour.into(), &form.file).await.is_ok()
-        /* && display_now */
-        {
+        if save_image(day.into(), hour.into(), &form.file).await.is_ok() && display_now {
             let mut display_cmd = Command::new("/usr/local/bin/eink-display");
             display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
             if let Err(e) = display_cmd.spawn() {
@@ -211,7 +210,7 @@ async fn main() -> std::io::Result<()> {
             .service(thumbs)
             .service(show)
     })
-    .bind(("0.0.0.0", 8080))?
+    .bind(("0.0.0.0", 80))?
     .workers(2)
     .run()
     .await
