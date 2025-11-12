@@ -1,14 +1,16 @@
 mod display_constants;
 mod e_paper_display_driver;
+mod last_run;
 
+use crate::e_paper_display_driver::bit_bang_driver::{EpdError, EPaperDisplayBBDriver as Driver};
+use crate::last_run::{update_last_run, safe_to_run};
 use clap::Parser;
-use e_paper_display_driver::bit_bang_driver::EPaperDisplayBBDriver as Driver;
-use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::info;
+use thiserror::Error;
+use tracing::{error, info};
 use tracing::metadata::LevelFilter;
 
 #[derive(Debug, Parser)]
@@ -16,7 +18,20 @@ struct Args {
     file: Option<PathBuf>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[derive(Debug, Error)]
+enum DisplayError {
+    #[error(transparent)]
+    EpdError(#[from] EpdError),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error("Display has refreshed too recently.")]
+    TooSoon,
+}
+
+fn main() -> Result<(), DisplayError> {
+    if !safe_to_run() {
+        return Err(DisplayError::TooSoon);
+    }
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::INFO)
         .init();
@@ -33,10 +48,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         device.display(&epd_image);
         info!("Image sent. Sleeping display...");
         device.sleep();
-    }
-    else {
+    } else {
         info!("Clearing display");
         device.clear();
+    }
+    if let Err(e) = update_last_run() {
+        error!("{}", e);
     }
     info!("Screen clear. Waiting 2s...");
     sleep(Duration::from_secs(2));
