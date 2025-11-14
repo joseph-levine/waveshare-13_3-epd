@@ -1,21 +1,23 @@
+use std::env::var;
 use actix_files::NamedFile;
+use actix_identity::{Identity, IdentityMiddleware};
 use actix_multipart::form::{json::Json as MpJson, tempfile::TempFile, MultipartForm};
-use actix_web::error::{ErrorBadRequest, ErrorNotFound, ErrorUnauthorized};
-use actix_web::web::Path;
-use actix_web::{
-    get, middleware::Logger, post, App, HttpResponse, HttpServer, Responder, Result as ActixResult,
-};
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_session::{config::PersistentSession, storage::CookieSessionStore, SessionMiddleware};
+use actix_web::cookie::time::Duration;
+use actix_web::cookie::Key;
+use actix_web::error::{ErrorBadRequest, ErrorUnauthorized};
+use actix_web::web::{resource, Form, Path, Redirect};
+use actix_web::{middleware::Logger, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result as ActixResult};
 use eink_convert::convert;
 use image::imageops::Lanczos3;
 use image::metadata::Orientation::NoTransforms;
 use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
-use log::{error, info};
+use log::{error};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
-use std::env::var;
 use std::path::PathBuf;
+use actix_web::http::StatusCode;
 use tokio::fs::remove_file;
 use tokio::process::Command;
 use tokio::spawn;
@@ -41,7 +43,7 @@ fn thumb_path(day: u8, hour: u8) -> PathBuf {
 enum ValidHour {
     Morning = 5,
     Noon = 12,
-    Night = 18
+    Night = 18,
 }
 impl Into<u8> for ValidHour {
     fn into(self) -> u8 {
@@ -57,7 +59,7 @@ impl TryInto<ValidHour> for u8 {
             5 => Ok(ValidHour::Morning),
             12 => Ok(ValidHour::Noon),
             18 => Ok(ValidHour::Night),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -79,10 +81,9 @@ impl Into<u8> for ValidDay {
     }
 }
 
-
 #[derive(Debug, Deserialize)]
 struct UploadJsonForm {
-    show_now: bool
+    show_now: bool,
 }
 
 #[derive(Debug, MultipartForm)]
@@ -92,12 +93,34 @@ struct UploadMultipartForm {
     json: MpJson<UploadJsonForm>,
 }
 
-#[get("/")]
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body(include_str!("../static/index.html"))
+#[derive(Debug, Deserialize)]
+pub struct AuthData {
+    pub password: String,
 }
 
-#[get("/css/pico.classless.min.css")]
+async fn index(user: Option<Identity>) -> impl Responder {
+    if user.is_none() {
+        HttpResponse::Found().append_header(("Location", "/login")).finish()
+    } else {
+        HttpResponse::Ok().body(include_str!("../static/index.html"))
+    }
+}
+
+async fn login_html() -> impl Responder {
+    HttpResponse::Ok().body(include_str!("../static/login.html"))
+}
+
+async fn login(
+    req: HttpRequest,
+    auth_data: Form<AuthData>,
+) -> ActixResult<impl Responder> {
+    if auth_data.password != var("BASIC_AUTH_PASSWORD").expect("Basic auth not set") {
+        return Err(ErrorUnauthorized("Not logged in"));
+    }
+    Identity::login(&req.extensions(), "user1".to_owned())?;
+    Ok(Redirect::to("/").using_status_code(StatusCode::FOUND))
+}
+
 async fn pico() -> impl Responder {
     HttpResponse::Ok().body(include_str!("../static/css/pico.classless.min.css"))
 }
@@ -136,15 +159,19 @@ async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConve
     Ok(())
 }
 
-#[post("/upload/{day}/{hour}")]
 async fn upload(
     path_parts: Path<(ValidDay, ValidHour)>,
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
+    user: Identity,
 ) -> ActixResult<impl Responder> {
     let (day, hour) = path_parts.into_inner();
     let display_now = form.json.show_now;
     spawn(async move {
-        if save_image(day.into(), hour.into(), &form.file).await.is_ok() && display_now {
+        if save_image(day.into(), hour.into(), &form.file)
+            .await
+            .is_ok()
+            && display_now
+        {
             let mut display_cmd = Command::new("/usr/local/bin/eink-display");
             display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
             if let Err(e) = display_cmd.spawn() {
@@ -156,9 +183,9 @@ async fn upload(
     Ok(HttpResponse::Ok())
 }
 
-#[post("/show/{day}/{hour}")]
 async fn show(
-    path_parts: Path<(ValidDay, ValidHour)>
+    path_parts: Path<(ValidDay, ValidHour)>,
+    user: Identity,
 ) -> ActixResult<impl Responder> {
     let (day, hour) = path_parts.into_inner();
     spawn(async move {
@@ -172,8 +199,7 @@ async fn show(
     Ok(HttpResponse::Ok())
 }
 
-#[get("/thumbs/{day}/{image_name}")]
-async fn thumbs(path_parts: Path<(ValidDay, String)>) -> ActixResult<impl Responder> {
+async fn thumbs(path_parts: Path<(ValidDay, String)>, user: Identity) -> ActixResult<impl Responder> {
     let (day, image_name) = path_parts.into_inner();
 
     let hour = image_name
@@ -183,32 +209,41 @@ async fn thumbs(path_parts: Path<(ValidDay, String)>) -> ActixResult<impl Respon
     let hour: u8 = hour
         .parse()
         .map_err(|_| ErrorBadRequest("Invalid image name"))?;
-    let hour: ValidHour = hour.try_into()
+    let hour: ValidHour = hour
+        .try_into()
         .map_err(|_| ErrorBadRequest("Invalid image name"))?;
     Ok(NamedFile::open_async(thumb_path(day.into(), hour.into())).await?)
 }
 
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
-
-    HttpServer::new(|| {
-        let auth = HttpAuthentication::basic(|req, credentials| async move {
-            if let Some(pass) = credentials.password() {
-                if pass == var("BASIC_AUTH_PASSWORD").expect("Basic auth not set") {
-                    return Ok(req);
-                }
-            }
-            Err((ErrorUnauthorized("Not Authorized"), req))
-        });
+    let secret_key = Key::generate();
+    HttpServer::new(move || {
+        let host_name = hostname::get().ok().and_then(|s| s.into_string().ok());
         App::new()
+            .wrap(IdentityMiddleware::default())
+            .wrap(
+                SessionMiddleware::builder(
+                    CookieSessionStore::default(),
+                    secret_key.clone()
+                )
+                .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(1)))
+                .cookie_name("auth".to_owned())
+                .cookie_secure(false)
+                .cookie_domain(host_name)
+                .cookie_path("/".to_owned())
+                .build(),
+            )
             .wrap(Logger::default())
-            .wrap(auth)
-            .service(upload)
-            .service(index)
-            .service(pico)
-            .service(thumbs)
-            .service(show)
+            .service(resource("/upload/{day}/{hour}").post(upload))
+            .service(resource("/").get(index))
+            .service(resource("/css/pico.classless.min.css").get(pico))
+            .service(resource("/thumbs/{day}/{image_name}").get(thumbs))
+            .service(resource("/show/{day}/{hour}").post(show))
+            .service(resource("/login").get(login_html))
+            .service(resource("/auth/login").post(login))
     })
     .bind(("0.0.0.0", 80))?
     .workers(2)
