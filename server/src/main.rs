@@ -129,15 +129,15 @@ async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConve
     let bin_path = nybble_img_bin_path(day, hour);
     let remove_bin = remove_file(&bin_path).await;
     if let Err(remove_bin) = remove_bin {
-        error!("Cannot remove image: {}/{} ({:?})", day, hour, remove_bin);
+        error!("Cannot remove image: {} ({:?})", bin_path.display(), remove_bin);
         // continue anyhow
     }
     let thumb_path = thumb_path(day, hour);
     let remove_thumb = remove_file(&thumb_path).await;
     if let Err(remove_thumb) = remove_thumb {
         error!(
-            "Cannot remove thumbnail: {}/{} ({:?})",
-            day, hour, remove_thumb
+            "Cannot remove thumbnail: {} ({:?})",
+            thumb_path.display(), remove_thumb
         );
         // continue anyhow
     }
