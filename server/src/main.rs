@@ -162,7 +162,7 @@ async fn save_image(day: u8, hour: u8, file: &TempFile) -> Result<(), ImageConve
 async fn upload(
     path_parts: Path<(ValidDay, ValidHour)>,
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
-    user: Identity,
+    _user: Identity,
 ) -> ActixResult<impl Responder> {
     let (day, hour) = path_parts.into_inner();
     let display_now = form.json.show_now;
@@ -185,7 +185,7 @@ async fn upload(
 
 async fn show(
     path_parts: Path<(ValidDay, ValidHour)>,
-    user: Identity,
+    _user: Identity,
 ) -> ActixResult<impl Responder> {
     let (day, hour) = path_parts.into_inner();
     spawn(async move {
