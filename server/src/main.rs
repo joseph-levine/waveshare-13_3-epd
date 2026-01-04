@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use std::path::PathBuf;
 use actix_web::http::StatusCode;
+use actix_web::middleware::DefaultHeaders;
 use tokio::fs::remove_file;
 use tokio::process::Command;
 use tokio::spawn;
@@ -240,7 +241,7 @@ async fn main() -> std::io::Result<()> {
             .service(resource("/upload/{day}/{hour}").post(upload))
             .service(resource("/").get(index))
             .service(resource("/css/pico.classless.min.css").get(pico))
-            .service(resource("/thumbs/{day}/{image_name}").get(thumbs))
+            .service(resource("/thumbs/{day}/{image_name}").wrap(DefaultHeaders::new().add(("Cache-Control", "max-age=60"))).get(thumbs))
             .service(resource("/show/{day}/{hour}").post(show))
             .service(resource("/login").get(login_html))
             .service(resource("/auth/login").post(login))
