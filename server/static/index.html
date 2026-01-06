@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="css/pico.classless.min.css" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="stylesheet" href="css/pico.classless.min.css"/>
     <title>Frame</title>
 </head>
 <body>
@@ -91,7 +91,7 @@
             for (const hourElem of document.querySelectorAll("input[name='hour']")) {
                 const image = hourElem.parentElement.querySelector("img");
                 if (!!image) {
-                    image.src = `thumbs/${day}/${hourElem.value}.jpeg`;
+                    image.srcset = `thumbs/${day}/${hourElem.value}.jpeg?d=1 1x, thumbs/${day}/${hourElem.value}.jpeg?d=2 2x, thumbs/${day}/${hourElem.value}.jpeg?d=3 3x`;
                     image.hidden = false;
                 }
             }
