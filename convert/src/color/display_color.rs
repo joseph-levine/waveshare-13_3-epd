@@ -18,10 +18,10 @@ impl DisplayColor {
         HashMap::from([
             (DisplayColor::Black, Rgb::from([0, 0, 0])),
             (DisplayColor::White, Rgb::from([255, 255, 255])),
-            (DisplayColor::Yellow, Rgb::from([255, 243, 57])),
-            (DisplayColor::Red, Rgb::from([191, 2, 1])),
-            (DisplayColor::Blue, Rgb::from([100, 64, 255])),
-            (DisplayColor::Green, Rgb::from([68, 138, 28])),
+            (DisplayColor::Yellow, Rgb::from([208, 190, 71])),
+            (DisplayColor::Red, Rgb::from([156, 72, 75])),
+            (DisplayColor::Blue, Rgb::from([61, 59, 94])),
+            (DisplayColor::Green, Rgb::from([58, 91, 70])),
         ])
     }
 }
