@@ -93,7 +93,7 @@ impl EPaperDisplayBBDriver {
             (CommandCode::Tcon, SelectedChip::Both),
             (CommandCode::Agid, SelectedChip::Both),
             (CommandCode::Pws, SelectedChip::Both),
-            (CommandCode::Ccset, SelectedChip::Both),
+            (CommandCode::CcSet, SelectedChip::Both),
             (CommandCode::Tres, SelectedChip::Both),
             (CommandCode::Pwr, SelectedChip::Main),
             (CommandCode::EnBuf, SelectedChip::Main),
