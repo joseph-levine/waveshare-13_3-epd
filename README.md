@@ -1,14 +1,12 @@
-# Waveshare 13.3" Rust driver
-Seriously WIP.
+# Waveshare 13.3" Bit-bang app & web control
+This is three projects:
 
+## convert
+Resizes and dithers an image, saving to a binary format
+for use by the display binary
 
-## Installing
-TODO: set SPI overlay
+## display
+Displays an image on the Waveshare display via bit-banging
 
-TODO: adding build
-
-## An aside...
-"Master" and "slave" are pretty out of touch. I understand they're still
-standard in electronics.
-
-I'm using "main" and "peripheral."
+## server
+Manage the saved images and display any from the web
