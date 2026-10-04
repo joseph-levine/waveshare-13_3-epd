@@ -180,7 +180,7 @@ impl EPaperDisplayBBDriver {
         sleep(Duration::from_millis(50));
 
         info!("Write DRF");
-        self.send_command(CommandCode::Drf, SelectedChip::Both);
+        self.send_command(CommandCode::Refresh, SelectedChip::Both);
         self.wait_for_not_busy();
 
         info!("Write POF");

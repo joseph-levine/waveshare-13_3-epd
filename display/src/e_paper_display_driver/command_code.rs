@@ -10,7 +10,7 @@ pub enum CommandCode {
     BtstP = 0x06,
     DeepSleep = 0x07, // JL - inferred
     Dtm = 0x10,
-    Drf = 0x12,
+    Refresh = 0x12,
     Pll = 0x30,
     Tsc = 0x40,
     Tse = 0x41,
@@ -44,7 +44,7 @@ pub enum CommandCode {
 const PSR_DATA: [u8; 2] = [0xDF, 0x69];
 const PWR_DATA: [u8; 6] = [0x0F, 0x00, 0x28, 0x2C, 0x28, 0x38];
 const POF_DATA: [u8; 1] = [0x00];
-const DRF_DATA: [u8; 1] = [0x00];
+const REFRESH_DATA: [u8; 1] = [0x00];
 const PLL_DATA: [u8; 1] = [0x08];
 const CDI_DATA: [u8; 1] = [0xF7];
 const TCON_DATA: [u8; 2] = [0x03, 0x03];
@@ -84,7 +84,7 @@ impl CommandCode {
             CommandCode::BtstP => Some(&BTST_P_DATA),
             CommandCode::DeepSleep => Some(&DEEP_SLEEP_DATA),
             CommandCode::Dtm => None, // Display the image, the data is the image itself
-            CommandCode::Drf => Some(&DRF_DATA),
+            CommandCode::Refresh => Some(&REFRESH_DATA),
             CommandCode::Pll => Some(&PLL_DATA),
             CommandCode::Tsc => None,
             CommandCode::Tse => None,
