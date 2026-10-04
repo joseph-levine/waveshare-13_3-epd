@@ -1,32 +1,32 @@
 mod web_structures;
 
+use crate::web_structures::*;
 use actix_files::NamedFile;
 use actix_identity::{Identity, IdentityMiddleware};
-use actix_multipart::form::{tempfile::TempFile, MultipartForm};
-use actix_session::{config::PersistentSession, storage::CookieSessionStore, SessionMiddleware};
-use actix_web::cookie::time::Duration;
+use actix_multipart::form::{MultipartForm, tempfile::TempFile};
+use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
 use actix_web::cookie::Key;
+use actix_web::cookie::time::Duration;
 use actix_web::error::{ErrorBadRequest, ErrorUnauthorized};
 use actix_web::http::StatusCode;
-use actix_web::middleware::DefaultHeaders;
-use actix_web::web::{resource, Form, Path, Query, Redirect};
+use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
+use actix_web::web::{Form, Path, Query, Redirect, resource};
 use actix_web::{
-    middleware::Logger, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder,
-    Result as ActixResult,
+    App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result as ActixResult,
+    middleware::Logger,
 };
 use eink_convert::convert;
+use image::ImageFormat::Jpeg;
 use image::imageops::Lanczos3;
 use image::metadata::Orientation::NoTransforms;
-use image::ImageFormat::Jpeg;
 use image::{DynamicImage, ImageDecoder, ImageReader};
-use log::error;
+use log::{debug, error};
 use std::collections::HashMap;
 use std::env::var;
 use std::path::PathBuf;
-use tokio::fs::remove_file;
+use tokio::fs::{create_dir, remove_file};
 use tokio::process::Command;
 use tokio::spawn;
-use crate::web_structures::*;
 
 #[derive(Debug, thiserror::Error)]
 enum ImageConversionError {
@@ -124,8 +124,8 @@ async fn save_image(
     img.apply_orientation(orientation);
     for (device_pixel_ratio, thumb_path) in &thumb_paths {
         let resized = img.resize(
-            256 * (*device_pixel_ratio as u32),
-            256 * (*device_pixel_ratio as u32),
+            256 * (u32::from(*device_pixel_ratio)),
+            256 * (u32::from(*device_pixel_ratio)),
             Lanczos3,
         );
         if resized.save_with_format(&thumb_path, Jpeg).is_err() {
@@ -142,8 +142,9 @@ async fn save_image(
 async fn upload(
     path_parts: Path<(ValidDay, ValidHour)>,
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
-    _user: Identity,
+    user: Identity,
 ) -> ActixResult<impl Responder> {
+    debug!("Upload for {}", user.id().unwrap_or("none?!".to_owned()));
     let (day, hour) = path_parts.into_inner();
     let display_now = form.json.show_now;
     spawn(async move {
@@ -152,11 +153,7 @@ async fn upload(
             .is_ok()
             && display_now
         {
-            let mut display_cmd = Command::new("/usr/local/bin/eink-display");
-            display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
-            if let Err(e) = display_cmd.spawn() {
-                error!("Failed to spawn eink display: {}", e);
-            }
+            display_e_ink_image(day, hour);
         }
     });
 
@@ -165,9 +162,15 @@ async fn upload(
 
 async fn show(
     path_parts: Path<(ValidDay, ValidHour)>,
-    _user: Identity,
+    user: Identity,
 ) -> ActixResult<impl Responder> {
+    debug!("show for {}", user.id().unwrap_or("none?!".to_owned()));
     let (day, hour) = path_parts.into_inner();
+    display_e_ink_image(day, hour);
+    Ok(HttpResponse::Ok())
+}
+
+fn display_e_ink_image(day: ValidDay, hour: ValidHour) {
     spawn(async move {
         let mut display_cmd = Command::new("/usr/local/bin/eink-display");
         display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
@@ -175,8 +178,6 @@ async fn show(
             error!("Failed to spawn eink display: {}", e);
         }
     });
-
-    Ok(HttpResponse::Ok())
 }
 
 async fn thumbs(
@@ -184,6 +185,7 @@ async fn thumbs(
     query: Query<DevicePixelRatioQuery>,
     user: Identity,
 ) -> ActixResult<impl Responder> {
+    debug!("Thumb for {}", user.id().unwrap_or("none?!".to_owned()));
     let (day, image_name) = path_parts.into_inner();
 
     let hour = image_name
@@ -196,17 +198,24 @@ async fn thumbs(
     let hour: ValidHour = hour
         .try_into()
         .map_err(|_| ErrorBadRequest("Invalid image name"))?;
-    Ok(NamedFile::open_async(thumb_path(day.into(), hour.into(), query.d)).await?)
+    Ok(NamedFile::open_async(thumb_path(
+        day.into(),
+        hour.into(),
+        query.d.unwrap_or(DevicePixelRatio::One),
+    ))
+    .await)
 }
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
     let secret_key = Key::generate();
+    create_app_directories().await;
     HttpServer::new(move || {
         let host_name = hostname::get().ok().and_then(|s| s.into_string().ok());
         App::new()
             .wrap(IdentityMiddleware::default())
+            .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(1)))
@@ -221,7 +230,7 @@ async fn main() -> std::io::Result<()> {
             .service(resource("/").get(index))
             .service(resource("/css/pico.classless.min.css").get(pico))
             .service(
-                resource("/thumbs/{day}/{image_name}/{density}")
+                resource("/thumbs/{day}/{image_name}")
                     .wrap(DefaultHeaders::new().add(("Cache-Control", "max-age=60")))
                     .get(thumbs),
             )
@@ -233,4 +242,15 @@ async fn main() -> std::io::Result<()> {
     .workers(2)
     .run()
     .await
+    // Note to self, use your hostname to connect, not 127 or localhost (for session cookie)
+}
+
+async fn create_app_directories() {
+    let _ = create_dir("thumbs").await;
+    let _ = create_dir("nybble_images").await;
+    let _ = create_dir("originals").await;
+    for i in 1..8 {
+        let _ = create_dir(format!("thumbs/{}", i)).await;
+        let _ = create_dir(format!("nybble_images/{}", i)).await;
+    }
 }

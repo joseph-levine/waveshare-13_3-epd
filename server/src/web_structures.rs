@@ -12,6 +12,12 @@ pub enum DevicePixelRatio {
     Three = 3,
 }
 
+impl Into<u32> for DevicePixelRatio {
+    fn into(self) -> u32 {
+        self as u32
+    }
+}
+
 impl Into<u8> for DevicePixelRatio {
     fn into(self) -> u8 {
         self as u8
@@ -93,5 +99,5 @@ pub struct AuthData {
 
 #[derive(Debug, Deserialize)]
 pub struct DevicePixelRatioQuery {
-    pub d: DevicePixelRatio,
+    pub d: Option<DevicePixelRatio>,
 }

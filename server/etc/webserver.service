@@ -7,10 +7,9 @@ Wants=network-online.target
 Restart=always
 Type=simple
 ExecStart=/usr/local/bin/display-server
-User=einkdisplay
-Environment='UPLOAD_DIR=/home/einkdisplay'
+User=eink
 Environment='BASIC_AUTH_PASSWORD='
-WorkingDirectory=/home/einkdisplay
+WorkingDirectory=/home/eink
 
 [Install]
 WantedBy=multi-user.target
