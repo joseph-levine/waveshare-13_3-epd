@@ -24,11 +24,11 @@ impl Into<u8> for DevicePixelRatio {
     }
 }
 
-impl TryFrom<u8> for DevicePixelRatio {
+impl TryInto<DevicePixelRatio> for u8 {
     type Error = ();
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
+    fn try_into(self) -> Result<DevicePixelRatio, Self::Error> {
+        match self {
             1 => Ok(DevicePixelRatio::One),
             2 => Ok(DevicePixelRatio::Two),
             3 => Ok(DevicePixelRatio::Three),

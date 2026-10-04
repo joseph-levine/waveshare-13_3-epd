@@ -123,11 +123,8 @@ async fn save_image(
     let mut img = DynamicImage::from_decoder(decoder)?;
     img.apply_orientation(orientation);
     for (device_pixel_ratio, thumb_path) in &thumb_paths {
-        let resized = img.resize(
-            256 * (u32::from(*device_pixel_ratio)),
-            256 * (u32::from(*device_pixel_ratio)),
-            Lanczos3,
-        );
+        let px = (*device_pixel_ratio).into();
+        let resized = img.resize(px, px, Lanczos3);
         if resized.save_with_format(&thumb_path, Jpeg).is_err() {
             error!("Could not save a thumbnail");
         }
