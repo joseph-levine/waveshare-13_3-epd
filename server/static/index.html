@@ -38,14 +38,14 @@
             <!--            <label><input type="radio" name="hour" value="10"/>10:00AM</label>-->
             <!--            <label><input type="radio" name="hour" value="11"/>11:00AM</label>-->
             <label><input type="radio" name="hour" value="12" required="required"/>12:00PM<img src="" hidden="hidden"
-                                                                                               alt="5am photo"/></label>
+                                                                                               alt="12pm photo"/></label>
             <!--            <label><input type="radio" name="hour" value="13"/>1:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="14"/>2:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="15"/>3:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="16"/>4:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="17"/>5:00PM</label>-->
             <label><input type="radio" name="hour" value="18" required="required"/>6:00PM<img src="" hidden="hidden"
-                                                                                              alt="5am photo"/></label>
+                                                                                              alt="6pm photo"/></label>
             <!--            <label><input type="radio" name="hour" value="19"/>7:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="20"/>8:00PM</label>-->
             <!--            <label><input type="radio" name="hour" value="21"/>9:00PM</label>-->
@@ -91,7 +91,7 @@
             for (const hourElem of document.querySelectorAll("input[name='hour']")) {
                 const image = hourElem.parentElement.querySelector("img");
                 if (!!image) {
-                    image.srcset = `thumbs/${day}/${hourElem.value}.jpeg?d=1 1x, thumbs/${day}/${hourElem.value}.jpeg?d=2 2x, thumbs/${day}/${hourElem.value}.jpeg?d=3 3x`;
+                    image.srcset = `thumbs/${day}/${hourElem.value}?d=1 1x, thumbs/${day}/${hourElem.value}?d=2 2x, thumbs/${day}/${hourElem.value}?d=3 3x`;
                     image.hidden = false;
                 }
             }
