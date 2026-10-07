@@ -2,15 +2,16 @@ use crate::color::display_color::{rgb_to_oklab, DisplayColor};
 use image::imageops::ColorMap;
 use image::Rgb;
 use palette::color_difference::HyAb;
-use palette::Oklab;
+use palette::{Hsl, IntoColor, Oklab, Saturate};
 use std::collections::HashMap;
 
 pub struct EPaperColorMap {
     colormap: HashMap<DisplayColor, Oklab>,
+    saturate: bool
 }
 
 impl EPaperColorMap {
-    pub fn new() -> Self {
+    pub fn new(saturate: bool) -> Self {
         let colors = vec![
             DisplayColor::Black,
             DisplayColor::White,
@@ -21,6 +22,7 @@ impl EPaperColorMap {
         ];
         Self {
             colormap: HashMap::from_iter(colors.into_iter().map(|c| (c, c.into()))),
+            saturate
         }
     }
 }
@@ -29,7 +31,11 @@ impl ColorMap for EPaperColorMap {
     type Color = Rgb<u8>; // dither requires this to be u8
 
     fn index_of(&self, color: &Self::Color) -> usize {
-        let oklab_color: Oklab = rgb_to_oklab(*color);
+        let mut oklab_color: Oklab = rgb_to_oklab(*color);
+        if self.saturate {
+            let hsl: Hsl = oklab_color.into_color();
+            oklab_color = hsl.saturate(1.0).into_color()
+        }
         let color = self
             .colormap
             .iter()

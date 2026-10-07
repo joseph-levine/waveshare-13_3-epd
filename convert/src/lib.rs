@@ -9,7 +9,7 @@ use crate::display_constants::{PIXEL_HEIGHT, PIXEL_WIDTH};
 use image::error::{DecodingError, ImageFormatHint};
 use image::imageops::{dither, FilterType};
 use image::metadata::Orientation::NoTransforms;
-use image::{DynamicImage, EncodableLayout, ImageDecoder, ImageError, ImageReader};
+use image::{DynamicImage, EncodableLayout, ImageDecoder, ImageError, ImageReader, RgbImage};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -19,6 +19,8 @@ pub fn convert(
     file: &Path,
     out_file: &Path,
     dithered_file: Option<&Path>,
+    equalize_histogram: bool,
+    saturate: bool,
 ) -> Result<(), ImageError> {
     let mut decoder = ImageReader::open(&file)?
         .with_guessed_format()?
@@ -26,19 +28,26 @@ pub fn convert(
     let orientation = decoder.orientation().unwrap_or(NoTransforms);
     let mut img = DynamicImage::from_decoder(decoder)?;
     img.apply_orientation(orientation);
-    let img = img;
     info!("Opened image {}. Rotating...", &file.display());
-    let img = img.rotate90();
+    img = img.rotate90();
     info!("Rotated. Resizing...");
-    let img = img.resize_to_fill(PIXEL_WIDTH, PIXEL_HEIGHT, FilterType::Lanczos3);
-    info!("Resized. Equalizing Histogram...");
-    // let mut img = equalize_color_histogram(&img).ok_or(ImageError::Decoding(
-    //     DecodingError::from_format_hint(ImageFormatHint::Name("Grayscale conversion failed".to_string())),
-    // ))?;
-    let mut img = img.into_rgb8();
-    info!("Histogram Equalized. Dithering...");
+    img = img.resize_to_fill(PIXEL_WIDTH, PIXEL_HEIGHT, FilterType::Lanczos3);
+    info!("Resized.");
+    let mut img: RgbImage = if equalize_histogram {
+        info!("Equalizing histogram...");
+        equalize_color_histogram(&img).ok_or(ImageError::Decoding(
+            DecodingError::from_format_hint(ImageFormatHint::Name("Grayscale conversion failed".to_string())),
+        ))?
+    } else {
+        info!("Converting to rgb8");
+        img.into_rgb8()
+    };
+    if equalize_histogram {
+        info!("Histogram Equalized. Dithering...");
+    }
 
-    let epd_map = EPaperColorMap::new();
+    info!("Saturate? {}", saturate);
+    let epd_map = EPaperColorMap::new(saturate);
     dither(&mut img, &epd_map);
     info!("Dithered");
 
