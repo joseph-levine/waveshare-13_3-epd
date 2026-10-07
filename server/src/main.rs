@@ -205,7 +205,7 @@ async fn thumbs(
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     let secret_key = Key::generate();
     create_app_directories().await;
     HttpServer::new(move || {
