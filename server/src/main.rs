@@ -15,19 +15,14 @@ use actix_web::{
     App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result as ActixResult,
     middleware::Logger,
 };
-use eink_convert::convert;
-use image::ImageFormat::Jpeg;
-use image::imageops::Lanczos3;
-use image::metadata::Orientation::NoTransforms;
-use image::{DynamicImage, ImageDecoder, ImageReader};
 use log::{debug, error};
-use std::collections::HashMap;
 use std::env::var;
 use std::path::PathBuf;
-use tokio::fs::{create_dir, remove_file};
+use tokio::fs::create_dir;
 use tokio::process::Command;
 use tokio::spawn;
 use uuid::Uuid;
+use zeromq::{PushSocket, Socket, SocketSend};
 
 #[derive(Debug, thiserror::Error)]
 enum ImageConversionError {
@@ -76,67 +71,6 @@ async fn pico() -> impl Responder {
     HttpResponse::Ok().body(include_str!("../static/css/pico.classless.min.css"))
 }
 
-async fn save_image(
-    day: ValidDay,
-    hour: ValidHour,
-    file: &PathBuf,
-) -> Result<(), ImageConversionError> {
-    let bin_path = nybble_img_bin_path(day, hour);
-    let remove_bin = remove_file(&bin_path).await;
-    if let Err(remove_bin) = remove_bin {
-        error!(
-            "Cannot remove image: {} ({:?})",
-            bin_path.display(),
-            remove_bin
-        );
-        // continue anyhow
-    }
-    let thumb_paths = HashMap::from([
-        (
-            DevicePixelRatio::One,
-            thumb_path(day, hour, DevicePixelRatio::One),
-        ),
-        (
-            DevicePixelRatio::Two,
-            thumb_path(day, hour, DevicePixelRatio::Two),
-        ),
-        (
-            DevicePixelRatio::Three,
-            thumb_path(day, hour, DevicePixelRatio::Three),
-        ),
-    ]);
-    for (_, thumb_path) in &thumb_paths {
-        let remove_thumb = remove_file(thumb_path).await;
-        if let Err(remove_thumb) = remove_thumb {
-            error!(
-                "Cannot remove thumbnail: {} ({:?})",
-                thumb_path.display(),
-                remove_thumb
-            );
-            // continue anyhow
-        }
-    }
-
-    let mut decoder = ImageReader::open(&file)?
-        .with_guessed_format()?
-        .into_decoder()?;
-    let orientation = decoder.orientation().unwrap_or(NoTransforms);
-    let mut img = DynamicImage::from_decoder(decoder)?;
-    img.apply_orientation(orientation);
-    for (device_pixel_ratio, thumb_path) in &thumb_paths {
-        let px = (*device_pixel_ratio).into();
-        let resized = img.resize(px, px, Lanczos3);
-        if resized.save_with_format(&thumb_path, Jpeg).is_err() {
-            error!("Could not save a thumbnail");
-        }
-    }
-    let binary_conversion = convert(&file, &bin_path, None, false, false);
-    if let Err(err) = binary_conversion {
-        error!("Failed to convert file to binary: {}", err);
-    }
-    Ok(())
-}
-
 async fn upload(
     path_parts: Path<(ValidDay, ValidHour)>,
     MultipartForm(form): MultipartForm<UploadMultipartForm>,
@@ -156,18 +90,43 @@ async fn upload(
         if let Some(suffix) = file_suffix {
             save_path.add_extension(suffix);
         }
-        match form.file.file.persist(&save_path) {
-            Ok(_) => {
-                if save_image(day.into(), hour.into(), &save_path)
-                    .await
-                    .is_ok()
-                    && display_now
-                {
-                    display_e_ink_image(day, hour);
-                }
-            }
-            Err(_) => {
-                error!("Could not save file: {}", save_path.display());
+        let Ok(_) = form.file.file.persist(&save_path) else {
+            error!("Failed to save file {}", save_path.display());
+            return;
+        };
+        let mut push_sock = PushSocket::new();
+        if let Err(e) = push_sock.connect("tcp://127.0.0.1:5567").await {
+            error!("Failed to connect to socket: {}", e);
+            return;
+        }
+        let messages = vec![
+            QueueMessage::Resize {
+                source: save_path.clone(),
+                destination: thumb_path(day, hour, DevicePixelRatio::One),
+                max_px: 256,
+            },
+            QueueMessage::Resize {
+                source: save_path.clone(),
+                destination: thumb_path(day, hour, DevicePixelRatio::Two),
+                max_px: 256 * 2,
+            },
+            QueueMessage::Resize {
+                source: save_path.clone(),
+                destination: thumb_path(day, hour, DevicePixelRatio::Three),
+                max_px: 256 * 3,
+            },
+            QueueMessage::ConvertToBin {
+                source: save_path,
+                destination: nybble_img_bin_path(day, hour),
+            },
+        ];
+        for message in messages {
+            let Ok(json) = serde_json::to_string(&message) else {
+                error!("Failed to convert message to json");
+                return;
+            };
+            if let Err(e) = push_sock.send(json.into()).await {
+                error!("Failed to send message: {}", e);
             }
         }
     });
@@ -227,6 +186,7 @@ async fn main() -> std::io::Result<()> {
     create_app_directories().await;
     HttpServer::new(move || {
         let host_name = hostname::get().ok().and_then(|s| s.into_string().ok());
+
         App::new()
             .wrap(IdentityMiddleware::default())
             .wrap(NormalizePath::new(TrailingSlash::Trim))

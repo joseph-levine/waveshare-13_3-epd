@@ -25,7 +25,7 @@ enum Message {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     let mut socket = PullSocket::new();
-    socket.connect("127.0.0.1:5567").await?; // Cerritos
+    socket.bind("127.0.0.1:5567").await?; // Cerritos
     loop {
         if let Ok(message) = socket.recv().await {
             let Ok(msg): Result<String, _> = message.clone().try_into() else {

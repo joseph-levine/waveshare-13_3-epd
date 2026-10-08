@@ -1,7 +1,8 @@
+use std::path::PathBuf;
 use actix_multipart::form::json::Json;
 use actix_multipart::form::tempfile::TempFile;
 use actix_multipart::form::MultipartForm;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
 
 #[derive(Debug, Deserialize_repr, Copy, Clone, Hash, PartialEq, Eq)]
@@ -100,4 +101,17 @@ pub struct AuthData {
 #[derive(Debug, Deserialize)]
 pub struct DevicePixelRatioQuery {
     pub d: Option<DevicePixelRatio>,
+}
+
+#[derive(Debug, Serialize)]
+pub enum QueueMessage {
+    Resize {
+        source: PathBuf,
+        destination: PathBuf,
+        max_px: u32,
+    },
+    ConvertToBin {
+        source: PathBuf,
+        destination: PathBuf,
+    },
 }
