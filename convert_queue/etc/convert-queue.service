@@ -1,16 +1,18 @@
 [Unit]
-Description=Rust e-ink display webserver
+Description=Rust e-ink image conversion queue
 After=network.target
 Wants=network-online.target
-PartOf=convert-queue.service
+PartOf=webserver.service
 
 [Service]
 Restart=always
 Type=simple
-ExecStart=/usr/local/bin/display-server
+ExecStart=/usr/local/bin/convert-queue
 User=eink
-Environment='BASIC_AUTH_PASSWORD='
 WorkingDirectory=/home/eink
+Nice=19
+IOSchedulingClass=idle
+IOSchedulingPriority=7
 
 [Install]
 WantedBy=multi-user.target
