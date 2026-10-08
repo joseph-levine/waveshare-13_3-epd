@@ -3,7 +3,7 @@ mod web_structures;
 use crate::web_structures::*;
 use actix_files::NamedFile;
 use actix_identity::{Identity, IdentityMiddleware};
-use actix_multipart::form::{MultipartForm, tempfile::TempFile};
+use actix_multipart::form::MultipartForm;
 use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
 use actix_web::cookie::Key;
 use actix_web::cookie::time::Duration;
@@ -27,6 +27,7 @@ use std::path::PathBuf;
 use tokio::fs::{create_dir, remove_file};
 use tokio::process::Command;
 use tokio::spawn;
+use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 enum ImageConversionError {
@@ -78,7 +79,7 @@ async fn pico() -> impl Responder {
 async fn save_image(
     day: ValidDay,
     hour: ValidHour,
-    file: &TempFile,
+    file: &PathBuf,
 ) -> Result<(), ImageConversionError> {
     let bin_path = nybble_img_bin_path(day, hour);
     let remove_bin = remove_file(&bin_path).await;
@@ -116,7 +117,7 @@ async fn save_image(
         }
     }
 
-    let mut decoder = ImageReader::open(&file.file.path())?
+    let mut decoder = ImageReader::open(&file)?
         .with_guessed_format()?
         .into_decoder()?;
     let orientation = decoder.orientation().unwrap_or(NoTransforms);
@@ -129,7 +130,7 @@ async fn save_image(
             error!("Could not save a thumbnail");
         }
     }
-    let binary_conversion = convert(&file.file.path(), &bin_path, None);
+    let binary_conversion = convert(&file, &bin_path, None, false, false);
     if let Err(err) = binary_conversion {
         error!("Failed to convert file to binary: {}", err);
     }
@@ -145,12 +146,29 @@ async fn upload(
     let (day, hour) = path_parts.into_inner();
     let display_now = form.json.show_now;
     spawn(async move {
-        if save_image(day.into(), hour.into(), &form.file)
-            .await
-            .is_ok()
-            && display_now
-        {
-            display_e_ink_image(day, hour);
+        let file_suffix = form
+            .file
+            .content_type
+            .map(|m| m.suffix().map(|s| s.to_string()))
+            .flatten();
+        let mut save_path: PathBuf =
+            PathBuf::from(format!("./originals/{}", Uuid::new_v4().to_string()));
+        if let Some(suffix) = file_suffix {
+            save_path.add_extension(suffix);
+        }
+        match form.file.file.persist(&save_path) {
+            Ok(_) => {
+                if save_image(day.into(), hour.into(), &save_path)
+                    .await
+                    .is_ok()
+                    && display_now
+                {
+                    display_e_ink_image(day, hour);
+                }
+            }
+            Err(_) => {
+                error!("Could not save file: {}", save_path.display());
+            }
         }
     });
 
@@ -195,12 +213,11 @@ async fn thumbs(
     let hour: ValidHour = hour
         .try_into()
         .map_err(|_| ErrorBadRequest("Invalid image name"))?;
-    Ok(NamedFile::open_async(thumb_path(
+    Ok(NamedFile::open(thumb_path(
         day.into(),
         hour.into(),
         query.d.unwrap_or(DevicePixelRatio::One),
-    ))
-    .await)
+    )))
 }
 
 #[tokio::main]
