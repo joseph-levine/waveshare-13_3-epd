@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use actix_multipart::form::MultipartForm;
 use actix_multipart::form::json::Json;
 use actix_multipart::form::tempfile::TempFile;
-use actix_multipart::form::MultipartForm;
 use serde::{Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize_repr, Copy, Clone, Hash, PartialEq, Eq)]
 #[repr(u8)]
@@ -113,5 +113,8 @@ pub enum QueueMessage {
     ConvertToBin {
         source: PathBuf,
         destination: PathBuf,
+    },
+    Display {
+        image_path: PathBuf,
     },
 }

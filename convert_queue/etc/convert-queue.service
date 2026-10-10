@@ -2,7 +2,6 @@
 Description=Rust e-ink image conversion queue
 After=network.target
 Wants=network-online.target
-PartOf=webserver.service
 
 [Service]
 Restart=always

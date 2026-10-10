@@ -5,55 +5,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <link rel="stylesheet" href="css/pico.classless.min.css"/>
     <title>Frame</title>
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-gap: 6px;
+        }
+
+        .grid-item {
+
+        }
+
+        .day-name {
+            display: block;
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .selected {
+            box-shadow: 0 0 0 5px yellow;
+            border-radius: 2px;
+        }
+
+        .flex-container {
+            display: flex;
+            align-items: baseline;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+        .block {
+            display: block;
+        }
+    </style>
 </head>
 <body>
 <main>
     <form id="form" enctype="multipart/form-data">
         <h1>Family Frame</h1>
-        <h2>File</h2>
         <input type="file" name="file" accept="image/*" required="required"/>
-        <h2>Day</h2>
         <fieldset>
-            <label><input type="radio" name="day" value="1" required="required"/>Monday</label>
-            <label><input type="radio" name="day" value="2" required="required"/>Tuesday</label>
-            <label><input type="radio" name="day" value="3" required="required"/>Wednesday</label>
-            <label><input type="radio" name="day" value="4" required="required"/>Thursday</label>
-            <label><input type="radio" name="day" value="5" required="required"/>Friday</label>
-            <label><input type="radio" name="day" value="6" required="required"/>Saturday</label>
-            <label><input type="radio" name="day" value="7" required="required"/>Sunday</label>
+            <h6 class="day-name">Monday</h6>
+            <div class="grid-container">
+                <img data-day="1" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/1/5?d=1 1x, thumbs/1/5?d=2 2x, thumbs/1/5?d=3 3x" alt="Monday 5am"
+                     title="Monday 5am"/>
+                <img data-day="1" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/1/12?d=1 1x, thumbs/1/12?d=2 2x, thumbs/1/12?d=3 3x" alt="Monday noon"
+                     title="Monday noon"/>
+                <img data-day="1" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/1/18?d=1 1x, thumbs/1/18?d=2 2x, thumbs/1/18?d=3 3x" alt="Monday 6pm"
+                     title="Monday 6pm"/>
+            </div>
+            <h6 class="day-name">Tuesday</h6>
+            <div class="grid-container">
+                <img data-day="2" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/2/5?d=1 1x, thumbs/2/5?d=2 2x, thumbs/2/5?d=3 3x" alt="Tuesday 5am"
+                     title="Tuesday 5am"/>
+                <img data-day="2" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/2/12?d=1 1x, thumbs/2/12?d=2 2x, thumbs/2/12?d=3 3x" alt="Tuesday noon"
+                     title="Tuesday noon"/>
+                <img data-day="2" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/2/18?d=1 1x, thumbs/2/18?d=2 2x, thumbs/2/18?d=3 3x" alt="Tuesday 6pm"
+                     title="Tuesday 6pm"/>
+            </div>
+            <h6 class="day-name">Wednesday</h6>
+            <div class="grid-container">
+                <img data-day="3" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/3/5?d=1 1x, thumbs/3/5?d=2 2x, thumbs/3/5?d=3 3x" alt="Wednesday 5am"
+                     title="Wednesday 5am"/>
+                <img data-day="3" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/3/12?d=1 1x, thumbs/3/12?d=2 2x, thumbs/3/12?d=3 3x" alt="Wednesday noon"
+                     title="Wednesday noon"/>
+                <img data-day="3" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/3/18?d=1 1x, thumbs/3/18?d=2 2x, thumbs/3/18?d=3 3x" alt="Wednesday 6pm"
+                     title="Wednesday 6pm"/>
+            </div>
+            <h6 class="day-name">Thursday</h6>
+            <div class="grid-container">
+                <img data-day="4" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/4/5?d=1 1x, thumbs/4/5?d=2 2x, thumbs/4/5?d=3 3x" alt="Thursday 5am"
+                     title="Thursday 5am"/>
+                <img data-day="4" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/4/12?d=1 1x, thumbs/4/12?d=2 2x, thumbs/4/12?d=3 3x" alt="Thursday noon"
+                     title="Thursday noon"/>
+                <img data-day="4" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/4/18?d=1 1x, thumbs/4/18?d=2 2x, thumbs/4/18?d=3 3x" alt="Thursday 6pm"
+                     title="Thursday 6pm"/>
+            </div>
+            <h6 class="day-name">Friday</h6>
+            <div class="grid-container">
+                <img data-day="5" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/5/5?d=1 1x, thumbs/5/5?d=2 2x, thumbs/5/5?d=3 3x" alt="Friday 5am"
+                     title="Friday 5am"/>
+                <img data-day="5" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/5/12?d=1 1x, thumbs/5/12?d=2 2x, thumbs/5/12?d=3 3x" alt="Friday noon"
+                     title="Friday noon"/>
+                <img data-day="5" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/5/18?d=1 1x, thumbs/5/18?d=2 2x, thumbs/5/18?d=3 3x" alt="Friday 6pm"
+                     title="Friday 6pm"/>
+            </div>
+            <h6 class="day-name">Saturday</h6>
+            <div class="grid-container">
+                <img data-day="6" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/6/5?d=1 1x, thumbs/6/5?d=2 2x, thumbs/6/5?d=3 3x" alt="Saturday 5am"
+                     title="Saturday 5am"/>
+                <img data-day="6" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/6/12?d=1 1x, thumbs/6/12?d=2 2x, thumbs/6/12?d=3 3x" alt="Saturday noon"
+                     title="Saturday noon"/>
+                <img data-day="6" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/6/18?d=1 1x, thumbs/6/18?d=2 2x, thumbs/6/18?d=3 3x" alt="Saturday 6pm"
+                     title="Saturday 6pm"/>
+            </div>
+            <h6 class="day-name">Sunday</h6>
+            <div class="grid-container">
+                <img data-day="7" data-hour="5" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/7/5?d=1 1x, thumbs/7/5?d=2 2x, thumbs/7/5?d=3 3x" alt="Sunday 5am"
+                     title="Sunday 5am"/>
+                <img data-day="7" data-hour="12" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/7/12?d=1 1x, thumbs/7/12?d=2 2x, thumbs/7/12?d=3 3x" alt="Sunday noon"
+                     title="Sunday noon"/>
+                <img data-day="7" data-hour="18" onclick="selectImg(this)" class="grid-item"
+                     srcset="thumbs/7/18?d=1 1x, thumbs/7/18?d=2 2x, thumbs/7/18?d=3 3x" alt="Sunday 6pm"
+                     title="Sunday 6pm"/>
+            </div>
+            <input type="hidden" id="day"/>
+            <input type="hidden" id="hour"/>
         </fieldset>
-        <h2>Time</h2>
         <fieldset>
-            <!--            <label><input type="radio" name="hour" value="0"/>12:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="1"/>1:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="2"/>2:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="3"/>3:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="4"/>4:00AM</label>-->
-            <label><input type="radio" name="hour" value="5" required="required"/>5:00AM<img src="" hidden="hidden"
-                                                                                             alt="5am photo"/></label>
-            <!--            <label><input type="radio" name="hour" value="6"/>6:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="7"/>7:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="8"/>8:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="9"/>9:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="10"/>10:00AM</label>-->
-            <!--            <label><input type="radio" name="hour" value="11"/>11:00AM</label>-->
-            <label><input type="radio" name="hour" value="12" required="required"/>12:00PM<img src="" hidden="hidden"
-                                                                                               alt="12pm photo"/></label>
-            <!--            <label><input type="radio" name="hour" value="13"/>1:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="14"/>2:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="15"/>3:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="16"/>4:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="17"/>5:00PM</label>-->
-            <label><input type="radio" name="hour" value="18" required="required"/>6:00PM<img src="" hidden="hidden"
-                                                                                              alt="6pm photo"/></label>
-            <!--            <label><input type="radio" name="hour" value="19"/>7:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="20"/>8:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="21"/>9:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="22"/>10:00PM</label>-->
-            <!--            <label><input type="radio" name="hour" value="23"/>11:00PM</label>-->
+        <label><input id="showNow" type="checkbox" name="showNow"/> Display
+            Soonish</label>
         </fieldset>
-        <label>Display when done uploading<input type="checkbox" name="show_now" value="1"></label>
-        <input type="submit" id="submit" value="Upload"/><input type="button" id="show_it" value="Show Selected"/>
+        <input type="submit" id="submit"  disabled="disabled" value="Upload"/>
+        <input type="button" id="showIt" disabled="disabled" value="Show Selected"/>
     </form>
 </main>
 <dialog id="uploadModal" closedby="any">
@@ -85,29 +170,30 @@
     </article>
 </dialog>
 <script>
-    for (const day of document.querySelectorAll("input[name='day']")) {
-        day.addEventListener("change", async (event) => {
-            const day = event.target.value;
-            for (const hourElem of document.querySelectorAll("input[name='hour']")) {
-                const image = hourElem.parentElement.querySelector("img");
-                if (!!image) {
-                    image.srcset = `thumbs/${day}/${hourElem.value}?d=1 1x, thumbs/${day}/${hourElem.value}?d=2 2x, thumbs/${day}/${hourElem.value}?d=3 3x`;
-                    image.hidden = false;
-                }
-            }
-        });
-    }
+    const selectImg = (el) => {
+        //get passed el
+        const day = el.dataset.day
+        const hour = el.dataset.hour
+        for (const d of document.querySelectorAll(".selected")) {
+            d.classList.remove("selected")
+        }
+        document.getElementById("submit").disabled = false
+        document.getElementById("showIt").disabled = false
+        document.getElementById("day").value = day
+        document.getElementById("hour").value = hour
+        el.classList.add("selected")
+    };
 
     document.getElementById("form").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const day = document.querySelector("input[name='day']:checked").value;
-        const hour = document.querySelector("input[name='hour']:checked").value;
+        const day = document.getElementById("day").value;
+        const hour = document.getElementById("hour").value;
 
-        const submit_input = document.getElementById("submit");
-        submit_input.disabled = true;
-        submit_input.value = "Submitted...";
+        const submitInput = document.getElementById("submit");
+        submitInput.disabled = true;
+        submitInput.value = "Submitted...";
         const formData = new FormData(event.target);
-        formData.append("json", new Blob([JSON.stringify({show_now: document.querySelector("input[name='show_now']").checked})], {type: "application/json"}))
+        formData.append("json", new Blob([JSON.stringify({show_now: document.getElementById("showNow").checked})], {type: "application/json"}))
         const response = await fetch(`/upload/${day}/${hour}`, {
             method: "POST",
             body: formData,
@@ -117,16 +203,16 @@
         } else {
             alert("upload failed");
         }
-        submit_input.disabled = false;
-        submit_input.value = "Upload";
-    })
+        submitInput.disabled = false;
+        submitInput.value = "Upload";
+    });
 
-    document.getElementById("show_it").addEventListener("click", async (event) => {
-        const day = document.querySelector("input[name='day']:checked").value;
-        const hour = document.querySelector("input[name='hour']:checked").value;
-        const display_input = document.getElementById("show_it");
-        display_input.disabled = true;
-        display_input.value = "Requested..."
+    document.getElementById("showIt").addEventListener("click", async () => {
+        const day = document.getElementById("day").value;
+        const hour = document.getElementById("hour").value;
+        const displayInput = document.getElementById("showIt");
+        displayInput.disabled = true;
+        displayInput.value = "Requested..."
 
         const response = await fetch(`/show/${day}/${hour}`, {method: "POST"});
         if (response.ok) {
@@ -134,8 +220,8 @@
         } else {
             alert("display failed");
         }
-        display_input.disabled = false;
-        display_input.value = "Show Selected"
+        displayInput.disabled = false;
+        displayInput.value = "Show Selected"
     });
 
 </script>

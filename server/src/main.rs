@@ -15,34 +15,32 @@ use actix_web::{
     App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result as ActixResult,
     middleware::Logger,
 };
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use log::{debug, error};
 use std::env::var;
 use std::path::PathBuf;
-use tokio::fs::create_dir;
-use tokio::process::Command;
+use tokio::fs::{copy, create_dir};
 use tokio::spawn;
 use uuid::Uuid;
 use zeromq::{PushSocket, Socket, SocketSend};
 
-#[derive(Debug, thiserror::Error)]
-enum ImageConversionError {
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
-    #[error(transparent)]
-    ImageError(#[from] image::ImageError),
-}
-
 fn nybble_img_bin_path(day: ValidDay, hour: ValidHour) -> PathBuf {
     let day: u8 = day.into();
     let hour: u8 = hour.into();
-    PathBuf::from("./nybble_images").join(format!("{}/{}.bin", day, hour))
+    let upload_path = var("UPLOAD_PATH").expect("Checked on app launch");
+    PathBuf::from(upload_path).join(format!("nybble_images/{}/{}.bin", day, hour))
 }
 
 fn thumb_path(day: ValidDay, hour: ValidHour, device_pixel_ratio: DevicePixelRatio) -> PathBuf {
     let day: u8 = day.into();
     let hour: u8 = hour.into();
     let device_pixel_ratio: u8 = device_pixel_ratio.into();
-    PathBuf::from("./thumbs").join(format!("{}/{}@{}x.jpeg", day, hour, device_pixel_ratio))
+    let upload_path = var("UPLOAD_PATH").expect("Checked on app launch");
+    PathBuf::from(upload_path).join(format!(
+        "thumbs/{}/{}@{}x.jpeg",
+        day, hour, device_pixel_ratio
+    ))
 }
 
 async fn index(user: Option<Identity>) -> impl Responder {
@@ -60,7 +58,7 @@ async fn login_html() -> impl Responder {
 }
 
 async fn login(req: HttpRequest, auth_data: Form<AuthData>) -> ActixResult<impl Responder> {
-    if auth_data.password != var("BASIC_AUTH_PASSWORD").expect("Basic auth not set") {
+    if auth_data.password != var("APP_PASSWORD").expect("App password not set") {
         return Err(ErrorUnauthorized("Not logged in"));
     }
     Identity::login(&req.extensions(), "user1".to_owned())?;
@@ -85,13 +83,14 @@ async fn upload(
             .content_type
             .map(|m| m.suffix().map(|s| s.to_string()))
             .flatten();
-        let mut save_path: PathBuf =
-            PathBuf::from(format!("./originals/{}", Uuid::new_v4().to_string()));
+        let upload_path_var = var("UPLOAD_PATH").expect("Checked on app launch");
+        let upload_path = PathBuf::from(upload_path_var);
+        let mut save_path = upload_path.join(format!("originals/{}", Uuid::new_v4().to_string()));
         if let Some(suffix) = file_suffix {
             save_path.add_extension(suffix);
         }
-        let Ok(_) = form.file.file.persist(&save_path) else {
-            error!("Failed to save file {}", save_path.display());
+        if let Err(e) = copy(form.file.file, &save_path).await {
+            error!("Failed to save file {}: {}", save_path.display(), e);
             return;
         };
         let mut push_sock = PushSocket::new();
@@ -99,7 +98,7 @@ async fn upload(
             error!("Failed to connect to socket: {}", e);
             return;
         }
-        let messages = vec![
+        let mut messages = vec![
             QueueMessage::Resize {
                 source: save_path.clone(),
                 destination: thumb_path(day, hour, DevicePixelRatio::One),
@@ -120,6 +119,11 @@ async fn upload(
                 destination: nybble_img_bin_path(day, hour),
             },
         ];
+        if display_now {
+            messages.push(QueueMessage::Display {
+                image_path: nybble_img_bin_path(day, hour),
+            })
+        }
         for message in messages {
             let Ok(json) = serde_json::to_string(&message) else {
                 error!("Failed to convert message to json");
@@ -140,18 +144,23 @@ async fn show(
 ) -> ActixResult<impl Responder> {
     debug!("show for {}", user.id().unwrap_or("none?!".to_owned()));
     let (day, hour) = path_parts.into_inner();
-    display_e_ink_image(day, hour);
+    let mut push_sock = PushSocket::new();
+    if let Err(e) = push_sock.connect("tcp://127.0.0.1:5567").await {
+        error!("Failed to connect to socket: {}", e);
+        return Ok(HttpResponse::InternalServerError());
+    }
+    let message = QueueMessage::Display {
+        image_path: nybble_img_bin_path(day, hour),
+    };
+    let Ok(json) = serde_json::to_string(&message) else {
+        error!("Failed to convert message to json");
+        return Ok(HttpResponse::InternalServerError());
+    };
+    if let Err(e) = push_sock.send(json.into()).await {
+        error!("Failed to send message: {}", e);
+        return Ok(HttpResponse::InternalServerError());
+    }
     Ok(HttpResponse::Ok())
-}
-
-fn display_e_ink_image(day: ValidDay, hour: ValidHour) {
-    spawn(async move {
-        let mut display_cmd = Command::new("/usr/local/bin/eink-display");
-        display_cmd.args([nybble_img_bin_path(day.into(), hour.into())]);
-        if let Err(e) = display_cmd.spawn() {
-            error!("Failed to spawn eink display: {}", e);
-        }
-    });
 }
 
 async fn thumbs(
@@ -182,7 +191,30 @@ async fn thumbs(
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
-    let secret_key = Key::generate();
+    var("APP_PASSWORD").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "APP_PASSWORD environment variable was not set",
+        )
+    })?;
+    var("UPLOAD_PATH").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "UPLOAD_PATH environment variable was not set",
+        )
+    })?;
+    var("BASE64_COOKIE_SECRET").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "UPLOAD_PATH environment variable was not set",
+        )
+    })?;
+    let decoded = BASE64_STANDARD
+        .decode(var("BASE64_COOKIE_SECRET").expect("Checked"))
+        .map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Base64 data was invalid")
+        })?;
+    let secret_key = Key::derive_from(&decoded);
     create_app_directories().await;
     HttpServer::new(move || {
         let host_name = hostname::get().ok().and_then(|s| s.into_string().ok());
@@ -220,11 +252,13 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn create_app_directories() {
-    let _ = create_dir("thumbs").await;
-    let _ = create_dir("nybble_images").await;
-    let _ = create_dir("originals").await;
+    let upload_path = var("UPLOAD_PATH").expect("Checked on app launch");
+    let pb = PathBuf::from(upload_path);
+    let _ = create_dir(pb.clone().join("thumbs")).await;
+    let _ = create_dir(pb.clone().join("nybble_images")).await;
+    let _ = create_dir(pb.clone().join("originals")).await;
     for i in 1..8 {
-        let _ = create_dir(format!("thumbs/{}", i)).await;
-        let _ = create_dir(format!("nybble_images/{}", i)).await;
+        let _ = create_dir(pb.clone().join(format!("thumbs/{}", i))).await;
+        let _ = create_dir(pb.clone().join(format!("nybble_images/{}", i))).await;
     }
 }

@@ -2,14 +2,16 @@
 Description=Rust e-ink display webserver
 After=network.target
 Wants=network-online.target
-PartOf=convert-queue.service
+Wants=convert-queue.service
 
 [Service]
 Restart=always
 Type=simple
 ExecStart=/usr/local/bin/display-server
 User=eink
-Environment='BASIC_AUTH_PASSWORD='
+Environment='APP_PASSWORD='
+Environment='UPLOAD_PATH=/home/eink'
+Environment='BASE64_COOKIE_SECRET='
 WorkingDirectory=/home/eink
 
 [Install]
