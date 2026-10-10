@@ -1,12 +1,13 @@
-use log::{error, warn};
-use serde::Deserialize;
-use std::path::{Path, PathBuf};
-use image::{DynamicImage, ImageDecoder, ImageError, ImageReader};
+use eink_convert::convert;
 use image::ImageFormat::Jpeg;
 use image::imageops::Lanczos3;
 use image::metadata::Orientation::NoTransforms;
+use image::{DynamicImage, ImageDecoder, ImageError, ImageReader};
+use log::{debug, error, warn};
+use serde::Deserialize;
+use std::path::{Path, PathBuf};
+use tokio::process::Command;
 use zeromq::{PullSocket, Socket, SocketRecv};
-use eink_convert::convert;
 
 #[derive(Debug, Deserialize)]
 enum Message {
@@ -19,13 +20,17 @@ enum Message {
         source: PathBuf,
         destination: PathBuf,
     },
+    Display {
+        image_path: PathBuf,
+    },
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     let mut socket = PullSocket::new();
-    socket.bind("127.0.0.1:5567").await?; // Cerritos
+    socket.bind("tcp://127.0.0.1:5567").await?; // Cerritos
+    debug!("Bound tcp socket");
     loop {
         if let Ok(message) = socket.recv().await {
             let Ok(msg): Result<String, _> = message.clone().try_into() else {
@@ -62,12 +67,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         warn!("Error converting image to bin: {}", e);
                     }
                 }
+                Message::Display { image_path } => {
+                    let mut display_cmd = Command::new("/usr/local/bin/eink-display");
+                    display_cmd.arg(&image_path);
+                    let spawn_result = display_cmd.spawn();
+                    if let Err(e) = spawn_result {
+                        warn!("Error displaying: {:?}", e);
+                    }
+                }
             }
         }
     }
 }
 
-fn resize<P: AsRef<Path>>(source: P, dest: P, px: u32) -> Result<(), ImageError>{
+fn resize<P: AsRef<Path>>(source: P, dest: P, px: u32) -> Result<(), ImageError> {
     let mut decoder = ImageReader::open(source.as_ref())?
         .with_guessed_format()?
         .into_decoder()?;
