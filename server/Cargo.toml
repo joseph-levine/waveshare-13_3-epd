@@ -1,6 +1,6 @@
 [package]
 name = "display-server"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [dependencies]
@@ -8,11 +8,13 @@ actix-files = { version = "^0.7.0" }
 actix-identity = { version = "^0.9.0" }
 actix-multipart = { version = "^0.8.5" }
 actix-session = { version = "^0.11.0", features = ["cookie-session"]}
-actix-web = { version = "^4.15.0" }
+actix-web = { version = "^4.15.0", features = ["rustls-0_23"] }
 base64 = { version = "^0.23.1" }
 env_logger = { version = "^0.11.11" }
 hostname = { version = "^0.4.2" }
 log = { version = "^0.4.34" }
+rustls = { version = "^0.23.45" }
+rustls-pemfile = { version = "^2.2" }
 serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.151" }
 serde_repr = { version = "^0.1.21"}

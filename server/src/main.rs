@@ -18,7 +18,10 @@ use actix_web::{
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use log::{debug, error};
-use std::env::var;
+use rustls::ServerConfig;
+use std::env::{home_dir, var};
+use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 use tokio::fs::{copy, create_dir};
 use tokio::spawn;
@@ -216,7 +219,8 @@ async fn main() -> std::io::Result<()> {
         })?;
     let secret_key = Key::derive_from(&decoded);
     create_app_directories().await;
-    HttpServer::new(move || {
+    let cert = cert_config();
+    let http_server = HttpServer::new(move || {
         let host_name = hostname::get().ok().and_then(|s| s.into_string().ok());
 
         App::new()
@@ -243,11 +247,16 @@ async fn main() -> std::io::Result<()> {
             .service(resource("/show/{day}/{hour}").post(show))
             .service(resource("/login").get(login_html))
             .service(resource("/auth/login").post(login))
-    })
-    .bind(("0.0.0.0", 80))?
-    .workers(2)
-    .run()
-    .await
+    });
+    if let Some(cert) = cert {
+        http_server
+            .bind_rustls_0_23(("0.0.0.0", 443), cert)?
+            .workers(2)
+            .run()
+            .await
+    } else {
+        http_server.bind(("0.0.0.0", 80))?.workers(2).run().await
+    }
     // Note to self, use your hostname to connect, not 127 or localhost (for session cookie)
 }
 
@@ -261,4 +270,27 @@ async fn create_app_directories() {
         let _ = create_dir(pb.clone().join(format!("thumbs/{}", i))).await;
         let _ = create_dir(pb.clone().join(format!("nybble_images/{}", i))).await;
     }
+}
+
+fn cert_config() -> Option<ServerConfig> {
+    let cert_dir = home_dir()?.join(".local/share/server");
+    let private_key = cert_dir.clone().join("privkey.pem");
+    let full_chain = cert_dir.clone().join("fullchain.pem");
+    let mut key_file = BufReader::new(File::open(private_key).ok()?);
+    let mut full_chain_file = BufReader::new(File::open(full_chain).ok()?);
+
+    // load TLS certs and key
+    // to create a self-signed temporary cert for testing:
+    let tls_certs = rustls_pemfile::certs(&mut full_chain_file)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    let tls_key = rustls_pemfile::pkcs8_private_keys(&mut key_file)
+        .next()?
+        .ok()?;
+
+    // set up TLS config options
+    ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(tls_certs, rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key))
+        .ok()
 }
